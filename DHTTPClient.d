@@ -15,7 +15,7 @@ import std.socket;
 import std.string;
 
 const auto CLRF = "\r\n";
-const auto HTTP_VERSION = "HTTP/4.1";
+const auto HTTP_VERSION = "HTTP/1.1";
 
 private class ParsedURL {
     private string protocol, domain, path;
@@ -98,9 +98,7 @@ private class ParsedURL {
     }
 }
 
-private SocketStream initConnection(string URL){
-    ParsedURL pu = new ParsedURL(URL);
-    
+private SocketStream initConnection(ParsedURL pu){
     if (pu.getProtocol() != "http"){
         ; // TODO: raise exception
     }
@@ -110,10 +108,38 @@ private SocketStream initConnection(string URL){
     return new SocketStream(tsock);
 }
 
+//~ public getPage(){
+    //~ 
+//~ }
+
 void main(){
-    SocketStream ss = initConnection("http://kitakitsune.org:443");
+    string URL = "http://kitakitsune.org/proc/time.php";
+    ParsedURL pu = new ParsedURL(URL);
+    
+    SocketStream ss = initConnection(pu);
+    
+    write(">> ", "GET " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
+    write(">> ", "Host: " ~ pu.getDomain() ~ CLRF);
+    ss.writeString("GET " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
+    ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
+    ss.writeString(CLRF);
 
     writeln(ss.readLine());
+    
+    string s = " ";
+    uint len;
+    while (s.length){
+        s = cast(string) ss.readLine();
+        writeln(s);
+        
+        if (s.tolower().startsWith("content-length")){
+            len = std.conv.to!(uint)(s.split(":")[1].strip());
+        }
+    }
+    
+    string page = cast(string) ss.readString(std.conv.to!(size_t)(len + 1));
+    
+    writeln(page);
 
     ss.close();
 }
