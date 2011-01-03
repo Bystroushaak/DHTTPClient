@@ -1,6 +1,7 @@
 /* TODO:
  *  Vyhodit URL exception pokud neobsahuje protokol.
- * 
+ *  Hledat Location v hlavičkách.
+ *      Udělat fci která ignoruje location?
 */
 
 // odstranit
@@ -13,9 +14,7 @@ import std.socket;
 import std.socketstream;
 import std.socket;
 import std.string;
-
-const auto CLRF = "\r\n";
-const auto HTTP_VERSION = "HTTP/1.1";
+import std.conv;
 
 private class ParsedURL {
     private string protocol, domain, path;
@@ -50,7 +49,7 @@ private class ParsedURL {
             t = split(this.domain, ":");
             
             this.domain = t[0];
-            this.port   = std.conv.to!(ushort)(t[1]);
+            this.port   = to!(ushort)(t[1]);
         }else{
             // Default ports
             switch(this.protocol){
@@ -89,57 +88,130 @@ private class ParsedURL {
         string sum = "Protocol:\t" ~ this.protocol;
         sum ~= "\nDomain\t\t" ~ this.domain;
         if (port != 0)
-            sum ~= "\nPort:\t\t" ~ std.conv.to!(string)(this.port);
+            sum ~= "\nPort:\t\t" ~ to!(string)(this.port);
         else
-            sum ~= "\nPort:\t\t" ~ std.conv.to!(string)(this.port) ~ " (unknown)";
+            sum ~= "\nPort:\t\t" ~ to!(string)(this.port) ~ " (unknown)";
         sum ~= "\nPath:\t\t" ~ this.path;
         
         return sum;
     }
 }
 
-private SocketStream initConnection(ParsedURL pu){
-    if (pu.getProtocol() != "http"){
-        ; // TODO: raise exception
-    }
-        
-    TcpSocket tsock = new TcpSocket(new InternetAddress(pu.getDomain(), pu.getPort()));
+public class HTTPClient{
+    private const string CLRF = "\r\n";
+    private const string HTTP_VERSION = "HTTP/1.1";
+    
+    private SocketStream initConnection(ref ParsedURL pu){
+        if (pu.getProtocol() != "http"){
+            ; // TODO: raise exception
+        }
+            
+        TcpSocket tsock = new TcpSocket(new InternetAddress(pu.getDomain(), pu.getPort()));
 
-    return new SocketStream(tsock);
+        return new SocketStream(tsock);
+    }
+    
+    private string[string] readHeaders(ref SocketStream ss){
+        string s = " ";
+        string[string] headers;
+        uint ioc = 0;
+        
+        // Read status line
+        s = cast(string) ss.readLine();
+        ioc = s.indexOf(HTTP_VERSION);
+        if (ioc >= 0){
+            headers["StatusCode"] = s.replace(HTTP_VERSION, "").strip();
+        }else{
+            headers["StatusCode"] = s;
+        }
+        
+        // Read headers.
+        s = " ";
+        while (s.length){
+            s = cast(string) ss.readLine();
+            
+            if (!s.length)
+                break;
+                
+            // Parse headers
+            ioc = s.indexOf(":");
+            if (ioc >= 0){
+                headers[s[0 .. ioc]] = s[(ioc + 1) .. $].strip();
+            }else{
+                headers[s] = "";
+            }
+        }
+        
+        return headers;
+    }
+    
+    public string getPage(string URL){
+        uint len;
+        string page, tmp;
+        ParsedURL pu = new ParsedURL(URL);
+        
+        // Initialize connection
+        SocketStream ss = initConnection(pu);
+        
+        // Write GET request
+        ss.writeString("GET " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
+        ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
+        ss.writeString(CLRF);
+
+        // Read headers
+        string[string] headers = readHeaders(ss);
+        
+        if (("StatusCode" in headers) && (headers["StatusCode"].startsWith("1") || headers["StatusCode"].startsWith("204" || headers["StatusCode"].startsWith("304")))){
+            // Special codes with no data - defined in RFC 2616, section 4.4 
+            // (http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4)
+            page = "";
+        }else if ("Transfer-Encoding" in headers && headers["Transfer-Encoding"].tolower() == "chunked"){
+            // http://en.wikipedia.org/wiki/Chunked_transfer_encoding
+            len = 1;
+            page = "";
+            while (len != 0){
+                // blank lines skip
+                tmp = "";
+                while (tmp.length == 0){
+                    tmp = cast(string) ss.readLine();
+                }
+                
+                // read size in hexa
+                std.c.stdio.sscanf(cast(char*) tmp, "%x", &len);
+                
+                if (len == 0)
+                    break;
+                
+                // read data
+                page ~= ss.readString(to!(size_t)(len));
+            }
+        }else if ("Content-Length" in headers){
+            len = to!(uint)(headers["Content-Length"]);
+            page = cast(string) ss.readString(to!(size_t)(len + 1));
+            // TODO: raise shit happen (nebo ukonceny pomoci close() ?)
+        }else{
+            // Read until closed connection
+            while (!ss.socket().isAlive())
+                page ~= ss.readLine() ~ "\n";
+        }
+        
+        // close connection
+        ss.close();
+        
+        return page;
+    }
 }
 
-//~ public getPage(){
-    //~ 
-//~ }
+
 
 void main(){
-    string URL = "http://kitakitsune.org/proc/time.php";
-    ParsedURL pu = new ParsedURL(URL);
+    //~ string URL = "http://kitakitsune.org/";
+    //~ string URL = "http://kitakitsune.org/proc/time.php"; // one simple line with date
+    //~ string URL = "http://bit.ly/ebi4js"; // redirect
+    string URL = "http://anoncheck.security-portal.cz";
     
-    SocketStream ss = initConnection(pu);
+    HTTPClient cl = new HTTPClient();
     
-    write(">> ", "GET " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
-    write(">> ", "Host: " ~ pu.getDomain() ~ CLRF);
-    ss.writeString("GET " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
-    ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
-    ss.writeString(CLRF);
-
-    writeln(ss.readLine());
-    
-    string s = " ";
-    uint len;
-    while (s.length){
-        s = cast(string) ss.readLine();
-        writeln(s);
-        
-        if (s.tolower().startsWith("content-length")){
-            len = std.conv.to!(uint)(s.split(":")[1].strip());
-        }
-    }
-    
-    string page = cast(string) ss.readString(std.conv.to!(size_t)(len + 1));
-    
-    writeln(page);
-
-    ss.close();
+    writeln(cl.getPage(URL));
+    //~ cl.getPage(URL);
 }
