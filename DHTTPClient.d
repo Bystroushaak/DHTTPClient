@@ -1,4 +1,6 @@
-/* TODO:
+/* DHTTPClient.d v0.1.0 (03.01.2011) by Bystroushaak (bystrousak@kitakitsune.org)
+ * 
+ * TODO:
  *  Vyhodit URL exception pokud neobsahuje protokol.
  *  Hledat Location v hlavičkách.
  *      Udělat fci která ignoruje location?
@@ -170,32 +172,31 @@ public class HTTPClient{
             len = 1;
             page = "";
             while (len != 0){
-                // blank lines skip
+                // Blank lines skip
                 tmp = "";
                 while (tmp.length == 0){
                     tmp = cast(string) ss.readLine();
                 }
                 
-                // read size in hexa
+                // Eead size in hexa
                 std.c.stdio.sscanf(cast(char*) tmp, "%x", &len);
                 
                 if (len == 0)
                     break;
                 
-                // read data
+                // Read data
                 page ~= ss.readString(to!(size_t)(len));
             }
         }else if ("Content-Length" in headers){
             len = to!(uint)(headers["Content-Length"]);
             page = cast(string) ss.readString(to!(size_t)(len + 1));
-            // TODO: raise shit happen (nebo ukonceny pomoci close() ?)
         }else{
             // Read until closed connection
             while (!ss.socket().isAlive())
                 page ~= ss.readLine() ~ "\n";
         }
         
-        // close connection
+        // Close connection
         ss.close();
         
         return page;
