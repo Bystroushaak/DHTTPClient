@@ -4,13 +4,19 @@
  *  Vyhodit URL exception pokud neobsahuje protokol.
  *  Hledat Location v hlavičkách.
  *      Udělat fci která ignoruje location?
+ *  Číst data jako byte a v případě příznivých hlaviček je teprve konvertovat na string.
+ * 
+ *  Přidělat fce:
+ *      string post(string URL, string[string] params)
+ *      void setClientHeaders(string[string] headers)
+ *      + nějaký sety, který jen přidaj další hlavičku
+ *      string[string] getClientHeaders()
+ *      + něco na stahování dat
 */
 
-// odstranit
-
-import std.stdio;
-
-// //--
+debug{
+    import std.stdio;
+}
 
 import std.socket;
 import std.socketstream;
@@ -102,6 +108,8 @@ private class ParsedURL {
 public class HTTPClient{
     private const string CLRF = "\r\n";
     private const string HTTP_VERSION = "HTTP/1.1";
+    private string[string] serverHeaders;
+    private string[string] clientHeaders;
     
     private SocketStream initConnection(ref ParsedURL pu){
         if (pu.getProtocol() != "http"){
@@ -147,27 +155,15 @@ public class HTTPClient{
         return headers;
     }
     
-    public string getPage(string URL){
+    private string readString(ref SocketStream ss){
         uint len;
         string page, tmp;
-        ParsedURL pu = new ParsedURL(URL);
         
-        // Initialize connection
-        SocketStream ss = initConnection(pu);
-        
-        // Write GET request
-        ss.writeString("GET " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
-        ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
-        ss.writeString(CLRF);
-
-        // Read headers
-        string[string] headers = readHeaders(ss);
-        
-        if (("StatusCode" in headers) && (headers["StatusCode"].startsWith("1") || headers["StatusCode"].startsWith("204" || headers["StatusCode"].startsWith("304")))){
+        if (("StatusCode" in this.serverHeaders) && (this.serverHeaders["StatusCode"].startsWith("1") || this.serverHeaders["StatusCode"].startsWith("204" || this.serverHeaders["StatusCode"].startsWith("304")))){
             // Special codes with no data - defined in RFC 2616, section 4.4 
             // (http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4)
             page = "";
-        }else if ("Transfer-Encoding" in headers && headers["Transfer-Encoding"].tolower() == "chunked"){
+        }else if ("Transfer-Encoding" in this.serverHeaders && this.serverHeaders["Transfer-Encoding"].tolower() == "chunked"){
             // http://en.wikipedia.org/wiki/Chunked_transfer_encoding
             len = 1;
             page = "";
@@ -178,7 +174,7 @@ public class HTTPClient{
                     tmp = cast(string) ss.readLine();
                 }
                 
-                // Eead size in hexa
+                // Read size in hexa
                 std.c.stdio.sscanf(cast(char*) tmp, "%x", &len);
                 
                 if (len == 0)
@@ -187,8 +183,8 @@ public class HTTPClient{
                 // Read data
                 page ~= ss.readString(to!(size_t)(len));
             }
-        }else if ("Content-Length" in headers){
-            len = to!(uint)(headers["Content-Length"]);
+        }else if ("Content-Length" in this.serverHeaders){
+            len = to!(uint)(this.serverHeaders["Content-Length"]);
             page = cast(string) ss.readString(to!(size_t)(len + 1));
         }else{
             // Read until closed connection
@@ -196,23 +192,51 @@ public class HTTPClient{
                 page ~= ss.readLine() ~ "\n";
         }
         
+        return page;
+    }
+    
+    public string get(string URL, string[string] cHeaders){        
+        ParsedURL pu = new ParsedURL(URL); // TODO: přidat reakci na exception? Nejspíš ne..
+        
+        // Initialize connection
+        SocketStream ss = initConnection(pu);
+        
+        // Write GET request TODO: přidat možnost odeslat GET data, přidat odeslání vlastních hlaviček
+        ss.writeString("GET " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
+        ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
+        ss.writeString(CLRF);
+
+        // Read headers
+        this.serverHeaders = readHeaders(ss);
+        
+        //
+        string page = readString(ss);
+        
         // Close connection
         ss.close();
         
         return page;
     }
+    
+    public string get(string URL){
+        return get(URL, this.clientHeaders);
+    }
+    
+    public string[string] getServerHeaders(){
+        return this.serverHeaders;
+    }
 }
 
 
-
-void main(){
-    //~ string URL = "http://kitakitsune.org/";
-    //~ string URL = "http://kitakitsune.org/proc/time.php"; // one simple line with date
-    //~ string URL = "http://bit.ly/ebi4js"; // redirect
-    string URL = "http://anoncheck.security-portal.cz";
-    
-    HTTPClient cl = new HTTPClient();
-    
-    writeln(cl.getPage(URL));
-    //~ cl.getPage(URL);
+debug{
+    void main(){
+        //~ string URL = "http://kitakitsune.org/";
+        string URL = "http://kitakitsune.org/proc/time.php"; // one simple line with date
+        //~ string URL = "http://bit.ly/ebi4js"; // redirect
+        //~ string URL = "http://anoncheck.security-portal.cz";
+        
+        HTTPClient cl = new HTTPClient();
+        
+        writeln(cl.get(URL));
+    }
 }
