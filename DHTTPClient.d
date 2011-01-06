@@ -1,4 +1,4 @@
-/* DHTTPClient.d v0.1.0 (03.01.2011) by Bystroushaak (bystrousak@kitakitsune.org)
+/* DHTTPClient.d v0.2.1 (04.01.2011) by Bystroushaak (bystrousak@kitakitsune.org)
  * 
  * TODO:
  *  Vyhodit URL exception pokud neobsahuje protokol.
@@ -18,11 +18,10 @@ debug{
     import std.stdio;
 }
 
+import std.conv;
+import std.string;
 import std.socket;
 import std.socketstream;
-import std.socket;
-import std.string;
-import std.conv;
 
 private class ParsedURL {
     private string protocol, domain, path;
@@ -195,7 +194,7 @@ public class HTTPClient{
         return page;
     }
     
-    public string get(string URL, string[string] cHeaders){        
+    public string get(string URL, string[string] params){        
         ParsedURL pu = new ParsedURL(URL); // TODO: přidat reakci na exception? Nejspíš ne..
         
         // Initialize connection
@@ -222,7 +221,7 @@ public class HTTPClient{
         return get(URL, this.clientHeaders);
     }
     
-    public string[string] getServerHeaders(){
+    public string[string] getResponseHeaders(){
         return this.serverHeaders;
     }
 }
@@ -231,7 +230,8 @@ public class HTTPClient{
 debug{
     void main(){
         //~ string URL = "http://kitakitsune.org/";
-        string URL = "http://kitakitsune.org/proc/time.php"; // one simple line with date
+        //~ string URL = "http://kitakitsune.org/proc/time.php"; // one simple line with date
+        string URL = "http://kitakitsune.org/bhole/parametry.php";
         //~ string URL = "http://bit.ly/ebi4js"; // redirect
         //~ string URL = "http://anoncheck.security-portal.cz";
         
