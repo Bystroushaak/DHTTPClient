@@ -1,7 +1,6 @@
-/* DHTTPClient.d v0.2.1 (04.01.2011) by Bystroushaak (bystrousak@kitakitsune.org)
+/* DHTTPClient.d v0.3.0 (06.01.2011) by Bystroushaak (bystrousak@kitakitsune.org)
  * 
  * TODO:
- *  Vyhodit URL exception pokud neobsahuje protokol.
  *  Hledat Location v hlavičkách.
  *      Udělat fci která ignoruje location?
  *  Číst data jako byte a v případě příznivých hlaviček je teprve konvertovat na string.
@@ -37,7 +36,7 @@ private class ParsedURL {
             this.protocol = t[0].tolower();
             URL = t[1];
         }else{
-            // TODO: raise URL exception
+            throw new URLException("Can't find protocol!");
         }
         
         // Parse domain
@@ -104,6 +103,17 @@ private class ParsedURL {
     }
 }
 
+class HTTPClientException:Exception{
+    this(string msg){
+        super(msg);
+    }
+}
+class URLException:HTTPClientException{
+    this(string msg){
+        super(msg);
+    }
+}
+
 public class HTTPClient{
     private const string CLRF = "\r\n";
     private const string HTTP_VERSION = "HTTP/1.1";
@@ -112,12 +122,30 @@ public class HTTPClient{
     
     private SocketStream initConnection(ref ParsedURL pu){
         if (pu.getProtocol() != "http"){
-            ; // TODO: raise exception
+            throw new URLException("Bad protocol!");
         }
-            
+        
+        setDefaultHeaders();
+        
         TcpSocket tsock = new TcpSocket(new InternetAddress(pu.getDomain(), pu.getPort()));
 
         return new SocketStream(tsock);
+    }
+    
+    private void setDefaultHeaders(){
+        this.clientHeaders["User-Agent"] = "Mozilla/5.0 (X11; U; Linux i686; cs; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.3";
+        this.clientHeaders["Accept"] = "text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain";
+        this.clientHeaders["Accept-Language"] = "cs,en-us;q=0.7,en;q=0.3";
+        this.clientHeaders["Accept-Charset"]  = "utf-8";
+        this.clientHeaders["Keep-Alive"] = "300";
+        this.clientHeaders["Connection"] =  "keep-alive";
+    }
+    
+    private void sendHeaders(ref SocketStream ss){
+        // Send headers
+        foreach(string key, string val; this.clientHeaders){
+            ss.writeString(key ~ ": " ~ val ~ CLRF);
+        }
     }
     
     private string[string] readHeaders(ref SocketStream ss){
@@ -184,7 +212,7 @@ public class HTTPClient{
             }
         }else if ("Content-Length" in this.serverHeaders){
             len = to!(uint)(this.serverHeaders["Content-Length"]);
-            page = cast(string) ss.readString(to!(size_t)(len + 1));
+            page = cast(string) ss.readString(to!(size_t)(len + 1))[1 .. $];
         }else{
             // Read until closed connection
             while (!ss.socket().isAlive())
@@ -195,7 +223,7 @@ public class HTTPClient{
     }
     
     public string get(string URL, string[string] params){        
-        ParsedURL pu = new ParsedURL(URL); // TODO: přidat reakci na exception? Nejspíš ne..
+        ParsedURL pu = new ParsedURL(URL);
         
         // Initialize connection
         SocketStream ss = initConnection(pu);
@@ -203,6 +231,7 @@ public class HTTPClient{
         // Write GET request TODO: přidat možnost odeslat GET data, přidat odeslání vlastních hlaviček
         ss.writeString("GET " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
         ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
+        this.sendHeaders(ss);
         ss.writeString(CLRF);
 
         // Read headers
@@ -228,15 +257,21 @@ public class HTTPClient{
 
 
 debug{
+    import std.file;
     void main(){
         //~ string URL = "http://kitakitsune.org/";
         //~ string URL = "http://kitakitsune.org/proc/time.php"; // one simple line with date
-        string URL = "http://kitakitsune.org/bhole/parametry.php";
+        //~ string URL = "http://kitakitsune.org/bhole/parametry.php";
         //~ string URL = "http://bit.ly/ebi4js"; // redirect
-        //~ string URL = "http://anoncheck.security-portal.cz";
+        string URL = "http://anoncheck.security-portal.cz";
+        //~ string URL = "http://anoncheck.security-portal.cz/background.gif";
         
         HTTPClient cl = new HTTPClient();
         
         writeln(cl.get(URL));
+        //~ ubyte[] data = cast(ubyte[]) ;
+        //~ std.file.write("asd.gif", cl.get(URL));
+        //~ writeln(cl.getResponseHeaders());
+        
     }
 }
