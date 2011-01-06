@@ -13,10 +13,6 @@
  *      + něco na stahování dat
 */
 
-debug{
-    import std.stdio;
-}
-
 import std.conv;
 import std.string;
 import std.socket;
@@ -201,14 +197,19 @@ public class HTTPClient{
                     tmp = cast(string) ss.readLine();
                 }
                 
-                // Read size in hexa
-                std.c.stdio.sscanf(cast(char*) tmp, "%x", &len);
-                
-                if (len == 0)
-                    break;
-                
-                // Read data
-                page ~= ss.readString(to!(size_t)(len));
+                // It looks, that some servers sends responses not exactly RFC compatible :/ (or, I'm idiot which can't read :S)
+                if (tmp.isNumeric()){
+                    // Read size in hexa
+                    std.c.stdio.sscanf(cast(char*) tmp, "%x", &len);
+
+                    if (len == 0)
+                        break;
+
+                    // Read data
+                    page ~= ss.readString(to!(size_t)(len));
+                }else{
+                    page ~= tmp;
+                }
             }
         }else if ("Content-Length" in this.serverHeaders){
             len = to!(uint)(this.serverHeaders["Content-Length"]);
@@ -237,7 +238,7 @@ public class HTTPClient{
         // Read headers
         this.serverHeaders = readHeaders(ss);
         
-        //
+        // Read string..
         string page = readString(ss);
         
         // Close connection
@@ -258,13 +259,17 @@ public class HTTPClient{
 
 debug{
     import std.file;
+    import std.stdio;
+    
     void main(){
         //~ string URL = "http://kitakitsune.org/";
         //~ string URL = "http://kitakitsune.org/proc/time.php"; // one simple line with date
         //~ string URL = "http://kitakitsune.org/bhole/parametry.php";
         //~ string URL = "http://bit.ly/ebi4js"; // redirect
-        string URL = "http://anoncheck.security-portal.cz";
+        //~ string URL = "http://anoncheck.security-portal.cz";
         //~ string URL = "http://anoncheck.security-portal.cz/background.gif";
+        //~ string URL = "http://martiner.blogspot.com/2010/09/muj-nejdrazsi.html"; // not exactly normal response from server..
+        string URL = "http://janucesenka.blbne.cz/21848-komentare.html";
         
         HTTPClient cl = new HTTPClient();
         
