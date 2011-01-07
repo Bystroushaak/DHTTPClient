@@ -6,17 +6,32 @@
  *  Číst data jako byte a v případě příznivých hlaviček je teprve konvertovat na string.
  * 
  *  Přidělat fce:
- *      string post(string URL, string[string] params)
- *      void setClientHeaders(string[string] headers)
  *      + nějaký sety, který jen přidaj další hlavičku
- *      string[string] getClientHeaders()
- *      + něco na stahování dat
+ *      + reakce na 301
+ *      + unittest ParsedUrl
 */
 
+import std.uri;
 import std.conv;
 import std.string;
 import std.socket;
 import std.socketstream;
+
+class HTTPClientException:Exception{
+    this(string msg){
+        super(msg);
+    }
+}
+class URLException:HTTPClientException{
+    this(string msg){
+        super(msg);
+    }
+}
+class InvalidStateException:HTTPClientException{
+    this(string msg){
+        super(msg);
+    }
+}
 
 private class ParsedURL {
     private string protocol, domain, path;
@@ -68,7 +83,8 @@ private class ParsedURL {
                     this.port = 22;
                     break;
                 default:
-                    this.port = 0; // or raise exception?
+                    throw new URLException("Unknown default port!");
+                    break;
             }
         }
     }
@@ -99,22 +115,13 @@ private class ParsedURL {
     }
 }
 
-class HTTPClientException:Exception{
-    this(string msg){
-        super(msg);
-    }
-}
-class URLException:HTTPClientException{
-    this(string msg){
-        super(msg);
-    }
-}
-
 public class HTTPClient{
     private const string CLRF = "\r\n";
     private const string HTTP_VERSION = "HTTP/1.1";
     private string[string] serverHeaders;
     private string[string] clientHeaders;
+    private bool initiated = false;
+    private bool ignore_location = false;
     
     private SocketStream initConnection(ref ParsedURL pu){
         if (pu.getProtocol() != "http"){
@@ -139,9 +146,19 @@ public class HTTPClient{
     
     private void sendHeaders(ref SocketStream ss){
         // Send headers
-        foreach(string key, string val; this.clientHeaders){
+        foreach(string key, val; this.clientHeaders){
             ss.writeString(key ~ ": " ~ val ~ CLRF);
         }
+    }
+    
+    private string urlEncodeHeaders(string[string] headers){
+        string ostr = "";
+        
+        foreach(string key, val; headers){
+            ostr ~= std.uri.encode(key) ~ "=" ~ std.uri.encode(val) ~ "&";
+        }
+        
+        return ostr;
     }
     
     private string[string] readHeaders(ref SocketStream ss){
@@ -158,7 +175,7 @@ public class HTTPClient{
             headers["StatusCode"] = s;
         }
         
-        // Read headers.
+        // Read headers
         s = " ";
         while (s.length){
             s = cast(string) ss.readLine();
@@ -191,7 +208,7 @@ public class HTTPClient{
             len = 1;
             page = "";
             while (len != 0){
-                // Blank lines skip
+                // Skip blank lines
                 tmp = "";
                 while (tmp.length == 0){
                     tmp = cast(string) ss.readLine();
@@ -206,7 +223,7 @@ public class HTTPClient{
                         break;
 
                     // Read data
-                    page ~= ss.readString(to!(size_t)(len));
+                    page ~= cast(string) ss.readString(to!(size_t)(len));
                 }else{
                     page ~= tmp;
                 }
@@ -223,8 +240,51 @@ public class HTTPClient{
         return page;
     }
     
-    public string get(string URL, string[string] params){        
-        ParsedURL pu = new ParsedURL(URL);
+    private string readHeadersAndBody(ref SocketStream ss){
+        // Read headers
+        this.serverHeaders = readHeaders(ss);
+        this.initiated = true;
+        
+        // Read string..
+        string page = readString(ss);
+        
+        // Close connection
+        ss.close();
+        
+        if (this.serverHeaders["StatusCode"].startsWith("4")){
+            throw new URLException(this.serverHeaders["StatusCode"]);
+        }
+        
+        return page;
+    }
+    
+    private string parseGetURL(string URL, string[string] data){
+        string ostr = URL;
+        
+        // Append url with ?, & and headers..
+        if (!data.length){
+            if (ostr.count("?")){
+                if (ostr.count("&")){
+                    if (ostr.endsWith("&"))
+                        ostr ~= urlEncodeHeaders(data);
+                    else
+                        ostr ~= "&" ~ urlEncodeHeaders(data);
+                }else{
+                    if (ostr.count("="))
+                        ostr ~= "&" ~ urlEncodeHeaders(data);
+                    else
+                        ostr ~= urlEncodeHeaders(data);
+                }
+            }else{
+                ostr ~= "?" ~ urlEncodeHeaders(data);
+            }
+        }
+        
+        return ostr;
+    }
+    
+    public string get(string URL, string[string] params = ["":""]){  
+        ParsedURL pu = new ParsedURL(this.parseGetURL(URL, params));
         
         // Initialize connection
         SocketStream ss = initConnection(pu);
@@ -234,25 +294,61 @@ public class HTTPClient{
         ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
         this.sendHeaders(ss);
         ss.writeString(CLRF);
+        
+        ss.flush();
 
-        // Read headers
-        this.serverHeaders = readHeaders(ss);
-        
-        // Read string..
-        string page = readString(ss);
-        
-        // Close connection
-        ss.close();
-        
-        return page;
+        // Read everything and close connection
+        return readHeadersAndBody(ss);
     }
     
-    public string get(string URL){
-        return get(URL, this.clientHeaders);
+    public string post(string URL, string[string] params = ["":""]){
+        ParsedURL pu = new ParsedURL(URL);
+        string enc_params = this.urlEncodeHeaders(params);
+        
+        // Initialize connection
+        SocketStream ss = initConnection(pu);
+
+        // Write GET request TODO: přidat možnost odeslat GET data, přidat odeslání vlastních hlaviček
+        ss.writeString("POST " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
+        ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
+        this.sendHeaders(ss);
+        ss.writeString("Content-Type: application/x-www-form-urlencoded" ~ CLRF);
+        ss.writeString("Content-Length: " ~ std.conv.to!(string)(enc_params.length) ~ CLRF);
+        ss.writeString(CLRF);
+        
+        // Write data
+        ss.writeString(enc_params);
+        ss.writeString(CLRF);
+        
+        ss.flush();
+
+        // Read everything and close connection
+        return readHeadersAndBody(ss);
+    }
+    
+    public string getAndPost(string URL, string[string] get, string[string] post){
+        return this.post(parseGetURL(URL, get), post);
     }
     
     public string[string] getResponseHeaders(){
-        return this.serverHeaders;
+        if (this.initiated)
+            return this.serverHeaders;
+        else
+            throw new InvalidStateException("Not initiated yet.");
+    }
+    public string[string] getClientHeaders(){
+        return this.clientHeaders;
+    }
+    public void setClientHeaders(string[string] iheaders){
+        // Filter critical headers
+        string[string] fheaders;
+        foreach(string key, val; iheaders){
+            if (key != "Content-Length" && key != "Host"){
+                fheaders[key] = val;
+            } 
+        }
+        
+        this.clientHeaders = fheaders;
     }
 }
 
@@ -265,18 +361,24 @@ debug{
         //~ string URL = "http://kitakitsune.org/";
         //~ string URL = "http://kitakitsune.org/proc/time.php"; // one simple line with date
         //~ string URL = "http://kitakitsune.org/bhole/parametry.php";
-        //~ string URL = "http://bit.ly/ebi4js"; // redirect
+        string URL = "http://bit.ly/ebi4js"; // redirect
         //~ string URL = "http://anoncheck.security-portal.cz";
         //~ string URL = "http://anoncheck.security-portal.cz/background.gif";
         //~ string URL = "http://martiner.blogspot.com/2010/09/muj-nejdrazsi.html"; // not exactly normal response from server..
-        string URL = "http://janucesenka.blbne.cz/21848-komentare.html";
+        //~ string URL = "http://janucesenka.blbne.cz/21848-komentare.html";
         
+        
+        
+        //~ try{
+        //~ writeln(cl.get(URL));
+        
+        //~ 
+        //~ string[string] post = ["typ dat":"post", "postkey":"postval.."];
+        //~ string[string] get = ["typ dat":"get", "getkey":"getval.."];
         HTTPClient cl = new HTTPClient();
-        
         writeln(cl.get(URL));
-        //~ ubyte[] data = cast(ubyte[]) ;
+        writeln(cl.getResponseHeaders());
+
         //~ std.file.write("asd.gif", cl.get(URL));
-        //~ writeln(cl.getResponseHeaders());
-        
     }
 }
