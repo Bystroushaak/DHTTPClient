@@ -1,15 +1,141 @@
-/* DHTTPClient.d v0.5.0 (11.01.2011) by Bystroushaak (bystrousak@kitakitsune.org)
+/**
+ * Simple socket wrapper, which allows download data from webservers and send GET and POST data.
+ *
+ * Sources;
+ * 
+ *     - http://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol
+ * 
+ *     - http://en.wikipedia.org/wiki/List_of_HTTP_status_codes
+ * 
+ *     - http://en.wikipedia.org/wiki/Chunked_transfer_encoding
+ * 
+ *     - http://www.faqs.org/rfcs/rfc2616.html
+ * 
+ * Author:  Bystroushaak (bystrousak@kitakitsune.org)
+ * Version: 1.0.0
+ * Date:    11.01.2010
+ * 
+ * Copyright: This work is licensed under a Creative Commons Attribution-Noncommercial-Share Alike 3.0 Unported License (http://creativecommons.org/licenses/by-nc-sa/3.0/).
+ * 
+ * Examples:
+ * Initialization;
+ * ---
+ * import dhttpclient;
+ * 
+ * DHTTPClient cl = new DHTTPClient();
+ * ---
+ * 
+ * Download page with current date and time;
+ * ---
+ * writeln(cl.get("http://kitakitsune.org/proc/time.php"));
+ * ---
+ * output;
+ * ---
+ * 20110111 21:04:49
+ * ---
+ * 
+ * 
+ * If I need know headers from server;
+ * ---
+ * writeln(cl.getResponseHeaders());
+ * ---
+ * output;
+ * ---
+ * X-Powered-By:PHP/5.3.3-4 Keep-Alive:timeout=15, max=100 Date:Tue, 11 Jan 2011 20:06:25 GMT Vary:Accept-Encoding Content-Length:17 Connection:Keep-Alive Content-Type:text/html StatusCode:200 OK Server:Apache
+ * ---
+ * 
+ * 
+ * Send GET data;
+ * ---
+ * string[string] get_data = ["Type" : "GET"];
+ * get_data["More data"] = "Some more data";
+ * writeln(cl.get("http://bit.ly/gX0v4M", get_data));
+ * ---
+ * output;
+ * ---
+ * GET:
+ *    More_data=Some more data
+ *    Type=GET
+ * POST:
+ * 
+ * ---
+ * 
+ * 
+ * Send POST data;
+ * ---
+ * string[string] post_data = ["Type" : "POST"];
+ * writeln(cl.post("http://bit.ly/gX0v4M", post_data));
+ * ---
+ * output;
+ * ---
+ * GET:
+ * POST:
+ *    Type=POST
+ * 
+ * ---
+ * 
+ * 
+ * Send GET and POST data;
+ * ---
+ * writeln(cl.getAndPost("http://bit.ly/gX0v4M", get_data, post_data));
+ * ---
+ * output;
+ * ---
+ * GET:
+ *    More_data=Some more data
+ *    Type=GET
+ * POST:
+ *    Type=POST
+ * 
+ * ---
+ * 
+ * 
+ * Disable redirection;
+ * ---
+ * cl.setIgnoreRedirect(true);
+ * writeln(cl.getAndPost("http://bit.ly/gX0v4M", get_data, post_data));
+ * writeln(cl.getClientHeaders());
+ * ---
+ * output;
+ * ---
+ * <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+ * <HTML>
+ * <HEAD>
+ * <TITLE>Moved</TITLE>
+ * </HEAD>
+ * <BODY>
+ * <H2>Moved</H2>
+ * <A HREF="http://kitakitsune.org/bhole/parametry.php">The requested URL has moved here.</A>
+ * <P ALIGN=RIGHT><SMALL><I>AOLserver/4.5.1 on http://127.0.0.1:7300</I></SMALL></P>
+ * </BODY>
+ * </HTML>
+ * Keep-Alive:300 Connection:keep-alive Accept-Language:cs,en-us;q=0.7,en;q=0.3 Accept:text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain User-Agent:Mozilla/5.0 (Windows; U; Windows NT 5.1; cs; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.13 Accept-Charset:utf-8
+ * ---
  * 
 */
 
+module dhttpclient;
+
+
+//==============================================================================
+//= Imports ====================================================================
+//==============================================================================
 import std.uri;
 import std.conv;
 import std.string;
 import std.socket;
 import std.socketstream;
 
+
+
+//==============================================================================
+//= Global variables ===========================================================
+//==============================================================================
+
+/// This enum is used in DHTTPClient class for storing information about request when is needed to do redirection.
 private enum RequestType {NONEYET, GET, POST, GETANDPOST};
 
+/// Headers from firefox 3.6.13 on windows
 public enum string[string] FFHeaders =  [
     "User-Agent"      : "Mozilla/5.0 (Windows; U; Windows NT 5.1; cs; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.13",
     "Accept"          : "text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain",
@@ -19,6 +145,7 @@ public enum string[string] FFHeaders =  [
     "Connection"      : "keep-alive"
 ];
 
+/// Headers from firefox 3.6.13 on Linux
 public enum string[string] LFFHeaders =  [
     "User-Agent"      : "Mozilla/5.0 (X11; U; Linux i686; cs; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.13",
     "Accept"          : "text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain",
@@ -28,6 +155,7 @@ public enum string[string] LFFHeaders =  [
     "Connection"      : "keep-alive"
 ];
 
+/// Headers from Internet Explorer 7.0 on Windows NT 6.0
 public enum string[string] IEHeaders =  [
     "User-Agent"      : "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.0)",
     "Accept"          : "text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain",
@@ -37,37 +165,97 @@ public enum string[string] IEHeaders =  [
     "Connection"      : "keep-alive"
 ];
 
+/**
+ * Headers which will be used with new instance of DHTTPClient.
+ * 
+ * If you want different headers for all your future instances of DHTTPClient, just do something like
+ * -----------------------
+ * dhttpclient.DefaultHeaders = dhttpclient.IEHeaders;
+ * -----------------------
+ * 
+ * Standardvalue is FFHeaders.
+ * 
+ * See_also:
+     * FFHeaders
+*/
 public enum string[string] DefaultHeaders = FFHeaders;
 
 
 
+//==============================================================================
+//= Exceptions =================================================================
+//==============================================================================
+/**
+ * General exception for all exceptions throwed from this module.
+ * 
+ * If you want catch all subexceptions (URLException, InvalidStateException, StatusCodeException), use this exception. 
+ * 
+ * ------------
+ * try{
+ *     DHTTPClient d = new DHTTPClient();
+ *     ...
+ * }catch(HTTPClientException){
+ *     // this catch all exceptions which are throwed from DHTTPClient
+ * }
+ * ------------
+*/
 public class HTTPClientException:Exception{
     this(string msg){
         super(msg);
     }
 }
+
+/// This exception is throwed when isn't possible parse or download given page, or is used unknown protocol, etc..
 public class URLException:HTTPClientException{
     this(string msg){
         super(msg);
     }
 }
+
+///
 public class InvalidStateException:HTTPClientException{
     this(string msg){
         super(msg);
     }
 }
+
+/**
+ * This exception is thrown, when server return StatusCode different than 200 (Ok), or 301 (Redirection).
+ * 
+ * Exception contains informations about StatusCode and data returned by server.
+*/
 public class StatusCodeException:HTTPClientException{
     private uint status_code;
-    this(string msg, uint status_code){
+    private string data;
+    
+    this(string msg, uint status_code, string data){
         super(msg);
         this.status_code = status_code;
+        this.data = data;
     }
     
+    /// Returns given StatusCode
     uint getStatusCode(){
         return this.status_code;
     }
+    
+    /// Returns data downloaded from server
+    string getData(){
+        return this.data;
+    }
 }
 
+
+
+//==============================================================================
+//= Classes ====================================================================
+//==============================================================================
+/**
+ * Class for parsing url.
+ * 
+ * For internal use only.
+ * 
+*/
 private class ParsedURL {
     private string protocol, domain, path;
     private ushort port = 0;
@@ -95,7 +283,7 @@ private class ParsedURL {
             t = split(URL, "?");
             
             this.domain = t[0];
-            this.path   = "?" ~ join(t[1 .. $], "?");
+            this.path   = "/?" ~ join(t[1 .. $], "?");
         }else{
             this.domain = URL;
             this.path   = "/";
@@ -165,36 +353,42 @@ unittest{
     
     pu = new ParsedURL("http://kitakitsune.org?asd");
     assert(pu.getDomain() == "kitakitsune.org");
-    assert(pu.getPath() == "?asd");
+    assert(pu.getPath() == "/?asd");
     
     pu = new ParsedURL("http://kitakitsune.org:2011?asd");
     assert(pu.getDomain() == "kitakitsune.org");
     assert(pu.getPort() == 2011);
-    assert(pu.getPath() == "?asd");
+    assert(pu.getPath() == "/?asd");
 }
 
 
-
+/**
+ * Class which allows download data from web and send requests with GET and POST data.
+*/ 
 public class HTTPClient{
     private const string CLRF = "\r\n";
     private const string HTTP_VERSION = "HTTP/1.1";
-    private string[string] serverHeaders;
-    private string[string] clientHeaders;
-    private bool initiated = false;
+    private string[string] serverHeaders; // In this variable are after each request stored headers from server.
+    private string[string] clientHeaders; // Headers which send client to the server.
+    private bool initiated = false;       // This variable is set to true after first request.
 
-    // This is for exceptions handling
-    private bool ignore_redirect = false;
-    private uint max_recursion = 8;
-    private uint recursion;
-    private RequestType request_type = RequestType.NONEYET;
-    
-    // 301 Redirection handling
-    private string[string] get_params, post_params;
+    // StatusCode 301 (Redirection) handling
+    private bool ignore_redirect = false; // If true, redirects are ignored.
+    // Maximal recursion in one request (if server return redirection to another server, ant he to another, it should cause DoS..)
+    private uint max_recursion = 8;       
+    private uint recursion; // variable where is stored how many redirection was done
+    private string[string] get_params, post_params; // in theese variables are stored parameters when client is redirected to another server
+    private RequestType request_type = RequestType.NONEYET; // which function call in case of redirection..
     
     this(){
         this.clientHeaders = cast(string[string]) DefaultHeaders;
     }
     
+    /**
+     * Initialize connection to server.
+     *
+     * See_also: ParsedURL 
+    */ 
     private SocketStream initConnection(ref ParsedURL pu){
         if (pu.getProtocol() != "http"){
             throw new URLException("Bad protocol!");
@@ -211,6 +405,7 @@ public class HTTPClient{
         return new SocketStream(tsock);
     }
     
+    /// Send client headers to server.
     private void sendHeaders(ref SocketStream ss){
         // Send headers
         foreach(string key, val; this.clientHeaders){
@@ -218,7 +413,8 @@ public class HTTPClient{
         }
     }
     
-    private string urlEncodeHeaders(string[string] headers){
+    /// Urlencode all given parameters.
+    private string urlEncodeParams(string[string] headers){
         string ostr = "";
         
         foreach(string key, val; headers){
@@ -228,6 +424,7 @@ public class HTTPClient{
         return ostr;
     }
     
+    /// Read all headers from server.
     private string[string] readHeaders(ref SocketStream ss){
         string s = " ";
         string[string] headers;
@@ -262,6 +459,7 @@ public class HTTPClient{
         return headers;
     }
     
+    /// Read data from string and return them as string (which can be converted into anything else).
     private string readString(ref SocketStream ss){
         uint len;
         string page, tmp;
@@ -290,9 +488,9 @@ public class HTTPClient{
                         break;
 
                     // Read data
-                    page ~= cast(string) ss.readString(to!(size_t)(len));
+                    page ~= cast(string) ss.readString(to!(size_t)(len)) ~ "\n";
                 }else{
-                    page ~= tmp;
+                    page ~= tmp ~ "\n";
                 }
             }
         }else if ("Content-Length" in this.serverHeaders){
@@ -325,6 +523,7 @@ public class HTTPClient{
         return page;
     }
     
+    /// Mix url with parameters for get request.
     private string parseGetURL(string URL, string[string] data){
         string ostr = URL;
         
@@ -333,17 +532,17 @@ public class HTTPClient{
             if (ostr.count("?")){
                 if (ostr.count("&")){
                     if (ostr.endsWith("&"))
-                        ostr ~= urlEncodeHeaders(data);
+                        ostr ~= urlEncodeParams(data);
                     else
-                        ostr ~= "&" ~ urlEncodeHeaders(data);
+                        ostr ~= "&" ~ urlEncodeParams(data);
                 }else{
                     if (ostr.count("="))
-                        ostr ~= "&" ~ urlEncodeHeaders(data);
+                        ostr ~= "&" ~ urlEncodeParams(data);
                     else
-                        ostr ~= urlEncodeHeaders(data);
+                        ostr ~= urlEncodeParams(data);
                 }
             }else{
-                ostr ~= "?" ~ urlEncodeHeaders(data);
+                ostr ~= "?" ~ urlEncodeParams(data);
             }
         }
         
@@ -372,14 +571,14 @@ public class HTTPClient{
                         }
                     }else{
                         this.recursion = 0;
-                        throw new HTTPClientException("Error - too many (" ~ std.conv.to!(string)(this.max_recursion) ~ ") redirections.");
+                        throw new URLException("Error - too many (" ~ std.conv.to!(string)(this.max_recursion) ~ ") redirections.");
                     }
                 }else{ // If redirection isn't allowed, return page with redirection headers
                     this.recursion = 0;
                     return data;
                 }
             }else{ // Every other StatusCode throwing exception
-                throw new StatusCodeException(this.serverHeaders["StatusCode"], to!(uint)(this.serverHeaders["StatusCode"][0 .. 3]));
+                throw new StatusCodeException(this.serverHeaders["StatusCode"], to!(uint)(this.serverHeaders["StatusCode"][0 .. 3]), data);
             }
         }else{ // StatusCode 200 - Ok
             this.recursion = 0;
@@ -387,6 +586,36 @@ public class HTTPClient{
         }   
     }
     
+    /**
+     * Returns data from server.
+     *
+     * If is given params, send them as GET data.
+     *
+     * Example:
+     * ------------
+     * HTTPClient cl = new HTTPClient();
+     * cl.get("http://google.com");
+     * ------------ 
+     * or
+     * ------------
+     * cl.get("http://google.com", ["query":"dhttpclient"]);
+     * ------------
+     * 
+     * After each request it is possible to get server header with getResponseHeaders().
+     * 
+     * Returns:
+     *     Data from server.
+     * 
+     * Throws:
+     *     URLException, if isn't set ignore_redirect and when server redirect to server which redirect .. more than is set by setMaxRecursion().
+     * 
+     *     HTTPClientException when things goes bad.
+     * 
+     *     StatusCodeException if server returns headers with code different from 200 (Ok), or 301 (Redirect).
+     * 
+     * See_also:
+     *     getResponseHeaders()
+    */ 
     public string get(string URL, string[string] params = ["":""]){
         // Save status for case of redirection
         this.request_type = RequestType.GET;
@@ -410,7 +639,31 @@ public class HTTPClient{
         return handleExceptions(readHeadersAndBody(ss));
     }
     
-    public string post(string URL, string[string] params = ["":""]){
+    /**
+     * Send POST data to server and return given data.
+     * 
+     * Example:
+     * -----
+     * HTTPClient cl = new HTTPClient();
+     * cl.post("http://some.server/script.php", ["TYPE":"POST"]);
+     * -----
+     * 
+     * After each request is possible get server header with getResponseHeaders().
+     * 
+     * Returns:
+     *     Data from server.
+     * 
+     * Throws:
+     *     URLException, if isn't set ignore_redirect and when server redirect to server which redirect .. more than is set by setMaxRecursion().
+     * 
+     *     HTTPClientException when things goes bad.
+     * 
+     *     StatusCodeException if server returns headers with code different from 200 (Ok), or 301 (Redirect).
+     * 
+     * See_also:
+     *     getResponseHeaders()
+     */ 
+    public string post(string URL, string[string] params){
         // Save status for case of redirection
         if (this.request_type != RequestType.GETANDPOST){
             this.request_type = RequestType.POST;
@@ -421,7 +674,7 @@ public class HTTPClient{
         ParsedURL pu = new ParsedURL(URL);
         
         // Encode params
-        string enc_params = this.urlEncodeHeaders(params);
+        string enc_params = this.urlEncodeParams(params);
         
         // Initialize connection
         SocketStream ss = initConnection(pu);
@@ -444,6 +697,26 @@ public class HTTPClient{
         return handleExceptions(readHeadersAndBody(ss));
     }
     
+    /**
+     * Send GET and POST data in one request.
+     * 
+     * Returns:
+     *     Data from server.
+     * 
+     * Throws:
+     *     URLException, if isn't set ignore_redirect and when server redirect to server which redirect .. more than is set by setMaxRecursion().
+     * 
+     *     HTTPClientException when things goes bad.
+     * 
+     *     StatusCodeException if server returns headers with code different from 200 (Ok), or 301 (Redirect).
+     * 
+     * See_also:
+     *     HTTPClient.get()
+     * 
+     *     HTTPClient.post()
+     * 
+     *     getResponseHeaders()
+    */ 
     public string getAndPost(string URL, string[string] get, string[string] post){
         // Save status for case of redirection
         this.request_type = RequestType.GETANDPOST;
@@ -453,15 +726,30 @@ public class HTTPClient{
         return this.post(parseGetURL(URL, get), post);
     }
     
+    /**
+     * Return server headers from request.
+     * 
+     * Throws:
+     *     InvalidStateException if request wasn't send yet.
+    */
     public string[string] getResponseHeaders(){
         if (this.initiated)
             return this.serverHeaders;
         else
             throw new InvalidStateException("Not initiated yet.");
     }
+    
+    /**
+     * Return headers which client sends each request.
+    */
     public string[string] getClientHeaders(){
         return this.clientHeaders;
     }
+    /**
+     * Set headers which will client send each request.
+     *
+     * Headers can´t contain Content-Length and Host headers. 
+    */
     public void setClientHeaders(string[string] iheaders){
         // Filter critical headers
         string[string] fheaders;
@@ -473,47 +761,30 @@ public class HTTPClient{
         
         this.clientHeaders = fheaders;
     }
-    
+
+    ///
     public bool getIgnoreRedirect(){
         return this.ignore_redirect;
     }
+    /**
+     * If is set (true), client ignore StatusCode 301 and doesn't redirect. 
+     * 
+     * This could be usefull, because some pages return's interestign content which you can't normally see :)
+    */ 
     public void setIgnoreRedirect(bool ir){
         this.ignore_redirect = ir;
     }
     
+    ///
     public uint getMaxRecursion(){
         return this.max_recursion;
     }
+    /**
+     * Set max. redirect in one request.
+     *
+     * Default is 8. 
+    */ 
     public void setMaxRecursion(uint mr){
         this.max_recursion = mr;
-    }
-}
-
-
-debug{
-    import std.file;
-    import std.stdio;
-    
-    void main(){
-//         string URL = "http://kitakitsune.org/";
-//         string URL = "http://kitakitsune.org/proc/time.php"; // one simple line with date
-//         string URL = "http://kitakitsune.org/bhole/parametry.php";
-//         string URL = "http://bit.ly/gX0v4M"; // redirect
-//         string URL = "http://anoncheck.security-portal.cz";
-//         string URL = "http://anoncheck.security-portal.cz/background.gif";
-//         string URL = "http://martiner.blogspot.com/2010/09/muj-nejdrazsi.html"; // not exactly normal response from server..
-//         string URL = "http://janucesenka.blbne.cz/21848-komentare.html";
-        
-        string[string] post = ["typ dat":"post", "postkey":"postval.."];
-        string[string] get = ["typ dat":"get", "getkey":"getval.."];
-        HTTPClient cl = new HTTPClient();
-//         writeln(cl.get(URL, get));
-//         writeln(cl.post(URL, post));
-        cl.setIgnoreRedirect(true);
-        writeln(cl.getClientHeaders());
-//         writeln(cl.getAndPost("http://kitakitsune.org/xa", get, post));
-//         writeln(cl.getResponseHeaders());
-
-//         std.file.write("asd.gif", cl.get(URL));
     }
 }
