@@ -12,8 +12,8 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.0.0
- * Date:    11.01.2010
+ * Version: 1.1.0
+ * Date:    14.01.2010
  * 
  * Copyright: This work is licensed under a Creative Commons Attribution-Noncommercial-Share Alike 3.0 Unported License (http://creativecommons.org/licenses/by-nc-sa/3.0/).
  * 
@@ -22,7 +22,7 @@
  * ---
  * import dhttpclient;
  * 
- * DHTTPClient cl = new DHTTPClient();
+ * HTTPClient cl = new HTTPClient();
  * ---
  * 
  * Download page with current date and time;
@@ -479,17 +479,22 @@ public class HTTPClient{
                     tmp = cast(string) ss.readLine();
                 }
                 
-                // It looks, that some servers sends responses not exactly RFC compatible :/ (or, I'm idiot which can't read :S)
-                if (tmp.isNumeric()){
-                    // Read size in hexa
-                    std.c.stdio.sscanf(cast(char*) tmp, "%x", &len);
+                // tmp.isNumeric probably generates exception if tmp is some kind of nonUTF string
+                try{
+                    // It looks, that some servers sends responses not exactly RFC compatible :/ (or, I'm idiot which can't read :S)
+                    if (tmp.isNumeric()){
+                        // Read size in hexa
+                        std.c.stdio.sscanf(cast(char*) tmp, "%x", &len);
 
-                    if (len == 0)
-                        break;
+                        if (len == 0)
+                            break;
 
-                    // Read data
-                    page ~= cast(string) ss.readString(to!(size_t)(len)) ~ "\n";
-                }else{
+                        // Read data
+                        page ~= cast(string) ss.readString(to!(size_t)(len)) ~ "\n";
+                    }else{
+                        page ~= tmp ~ "\n";
+                    }
+                }catch(core.exception.UnicodeException){
                     page ~= tmp ~ "\n";
                 }
             }
@@ -586,7 +591,7 @@ public class HTTPClient{
         }   
     }
     
-    /**
+     /**
      * Returns data from server.
      *
      * If is given params, send them as GET data.
@@ -616,7 +621,7 @@ public class HTTPClient{
      * See_also:
      *     getResponseHeaders()
     */ 
-    public string get(string URL, string[string] params = ["":""]){
+    public string get(string URL, string[string] params = null){
         // Save status for case of redirection
         this.request_type = RequestType.GET;
         this.get_params = params;
