@@ -12,10 +12,10 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.2.0
- * Date:    26.02.2010
+ * Version: 1.4.0
+ * Date:    21.07.2011
  * 
- * Copyright: This work is licensed under a Creative Commons Attribution-Noncommercial-Share Alike 3.0 Unported License (http://creativecommons.org/licenses/by-nc-sa/3.0/).
+ * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/).
  * 
  * Examples:
  * Initialization;
@@ -122,6 +122,7 @@ module dhttpclient;
 //==============================================================================
 import std.uri;
 import std.conv;
+import std.array;
 import std.string;
 import std.socket;
 import std.socketstream;
@@ -366,12 +367,19 @@ public class HTTPClient{
 	private bool ignore_redirect = false; // If true, redirects are ignored.
 	// Maximal recursion in one request (if server return redirection to another server, ant he to another, it should cause DoS..)
 	private uint max_recursion = 8;
-	private uint recursion; // variable where is stored how many redirection was done
-	private string[string] get_params, post_params; // in theese variables are stored parameters when client is redirected to another server
-	private RequestType request_type = RequestType.NONEYET; // which function call in case of redirection..
+	private uint recursion; // Variable where is stored how many redirection was done
+	private string[string] get_params, post_params; // In theese variables are stored parameters when client is redirected to another server
+	private RequestType request_type = RequestType.NONEYET; // Which method call in case of redirection..
+
+	private TcpSocket function(string domain, ushort port) getTcpSocket;
 
 	this(){
 	    this.clientHeaders = cast(string[string]) DefaultHeaders;
+
+		// Set default TcpSocket creator
+		this.getTcpSocket = function(string domain, ushort port){
+			return new TcpSocket(new InternetAddress(domain, port));
+		};
 	}
 
 	/**
@@ -387,12 +395,29 @@ public class HTTPClient{
 	    TcpSocket tsock;
 
 	    try{
-	        tsock = new TcpSocket(new InternetAddress(pu.getDomain(), pu.getPort()));
+	        tsock = this.getTcpSocket(pu.getDomain(), pu.getPort());
 	    }catch(std.socket.AddressException e){
 	        throw new URLException(e.toString());
 	    }
 
 	    return new SocketStream(tsock);
+	}
+
+	/**
+	 * Set TCP Socket creator. Normally, with each request is created new TcpSocket object.
+	 * Sometimes is usefull have option to set own (for example ssl tunneling, proxy ..).
+	 *
+	 * Argument fn is pointer to function, which returns TcpSocket and accepts two parameters
+	 * domain and port (classic TcpSocket parameters).
+	 *
+	 * Default is function(string domain, ushort port){
+			return new TcpSocket(new InternetAddress(domain, port));
+		};
+	 *
+	 * See_also: TcpSocket
+    */ 
+	public void setTcpSocketCreator(TcpSocket function(string domain, ushort port) fn){
+		this.getTcpSocket = fn;
 	}
 
 	/// Send client headers to server.
@@ -424,7 +449,7 @@ public class HTTPClient{
 	    s = cast(string) ss.readLine();
 	    ioc = s.indexOf(HTTP_VERSION);
 	    if (ioc >= 0){
-	        headers["StatusCode"] = s.replace(HTTP_VERSION, "").strip();
+	        headers["StatusCode"] = s.replace(cast(string) HTTP_VERSION, "").strip();
 	    }else{
 	        headers["StatusCode"] = s;
 	    }
