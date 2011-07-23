@@ -1,5 +1,5 @@
 /**
- * Simple socket wrapper, which allows download data and send GET and POST data.
+ * Simple socket wrapper, which allows download data and send GET and POST requests.
  *
  * Sources;
  * 
@@ -12,8 +12,8 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.4.0
- * Date:    21.07.2011
+ * Version: 1.4.1
+ * Date:    23.07.2011
  * 
  * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/).
  * 
@@ -328,6 +328,11 @@ public class ParsedURL {
 	public ushort getPort(){
 	    return this.port;
 	}
+	
+	public void setPath(string path){
+		this.url = this.url.replace(this.path, path);
+		this.path = path;
+	}
 
 	public string toString(){
 		return this.url;
@@ -569,15 +574,21 @@ public class HTTPClient{
 	    return ostr;
 	}
 
-	private string handleExceptions(string data){
+	private string handleExceptions(string data, ParsedURL pu){
 	    // Exceptions handling
 	    if ("StatusCode" in this.serverHeaders && !this.serverHeaders["StatusCode"].startsWith("200")){
 	        // React on 301 StatusCode (redirection)
-	        if (this.serverHeaders["StatusCode"].startsWith("301")){
+	        if (this.serverHeaders["StatusCode"].startsWith("301") || this.serverHeaders["StatusCode"].startsWith("302")){
 	            // Check if redirection is allowed
 	            if (! this.ignore_redirect){
 	                // Be carefull how many redirections was allready did
 	                if (this.recursion++ <= this.max_recursion){
+	                	// Redirection to different path at same server
+	                	if (this.serverHeaders["Location"].indexOf("://") < 0){
+	                		pu.setPath(this.serverHeaders["Location"]);
+	                		this.serverHeaders["Location"] = pu.toString();
+	                	}
+	                	
 	                    final switch(this.request_type){
 	                        case RequestType.GET:
 	                            return this.get(this.serverHeaders["Location"], this.get_params);
@@ -656,7 +667,7 @@ public class HTTPClient{
 	    ss.flush();
 
 	    // Read everything and close connection, handle exceptions
-	    return handleExceptions(readHeadersAndBody(ss));
+	    return handleExceptions(readHeadersAndBody(ss), pu);
 	}
 
 	/**
@@ -714,7 +725,7 @@ public class HTTPClient{
 	    ss.flush();
 
 	    // Read everything and close connection, handle exceptions
-	    return handleExceptions(readHeadersAndBody(ss));
+	    return handleExceptions(readHeadersAndBody(ss), pu);
 	}
 
 	/**
