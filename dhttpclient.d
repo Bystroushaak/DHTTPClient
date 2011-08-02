@@ -266,7 +266,7 @@ public class ParsedURL {
 	    if (URL.indexOf("://") >= 0){
 	        t = split(URL, "://");
 
-	        this.protocol = t[0].tolower();
+	        this.protocol = t[0].toLower();
 	        URL = t[1];
 	    }else{
 	        throw new URLException("Can't find protocol!");
@@ -488,7 +488,7 @@ public class HTTPClient{
 	        // Special codes with no data - defined in RFC 2616, section 4.4
 	        // (http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4)
 	        page = "";
-	    }else if ("Transfer-Encoding" in this.serverHeaders && this.serverHeaders["Transfer-Encoding"].tolower() == "chunked"){
+	    }else if ("Transfer-Encoding" in this.serverHeaders && this.serverHeaders["Transfer-Encoding"].toLower() == "chunked"){
 	        // http://en.wikipedia.org/wiki/Chunked_transfer_encoding
 	        len = 1;
 	        page = "";
