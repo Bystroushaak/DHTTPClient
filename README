@@ -1,0 +1,272 @@
+Simple socket wrapper, which allows download data and send GET and POST requests.
+
+Sources;
+	- http://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol
+	- http://en.wikipedia.org/wiki/List_of_HTTP_status_codes
+	- http://en.wikipedia.org/wiki/Chunked_transfer_encoding
+	- http://www.faqs.org/rfcs/rfc2616.html
+
+Author:  Bystroushaak (bystrousak@kitakitsune.org)
+Version: 1.4.1
+Date:    23.07.2011
+
+= Examples: ====================================================================
+Initialization;
+
+ import dhttpclient;
+ HTTPClient cl = new HTTPClient();
+
+Download page with timestamp;
+
+ writeln(cl.get("http://kitakitsune.org/proc/time.php"));
+
+output;
+
+ 1298758706
+
+If I want to see headers from server;
+
+ writeln(cl.getResponseHeaders());
+
+output;
+
+ X-Powered-By:PHP/5.3.3-4 Keep-Alive:timeout=15, max=100 Date:Tue, 11 Jan 2011 20:06:25 GMT Vary:Accept-Encoding Content-Length:17 Connection:Keep-Alive Content-Type:text/html StatusCode:200 OK Server:Apache
+
+Send GET data;
+
+ string[string] get_data = ["Type" : "GET"];
+ get_data["More data"] = "Some more data";
+ writeln(cl.get("http://bit.ly/gX0v4M", get_data));
+
+output;
+
+ GET:
+    More_data=Some more data
+    Type=GET
+ POST:
+
+
+Send POST data;
+
+ string[string] post_data = ["Type" : "POST"];
+ writeln(cl.post("http://bit.ly/gX0v4M", post_data));
+
+output;
+
+ GET:
+ POST:
+    Type=POST
+
+
+Send GET and POST data;
+
+ writeln(cl.getAndPost("http://bit.ly/gX0v4M", get_data, post_data));
+
+output;
+
+ GET:
+    More_data=Some more data
+    Type=GET
+ POST:
+    Type=POST
+
+
+Disable redirection;
+
+ cl.setIgnoreRedirect(true);
+ writeln(cl.getAndPost("http://bit.ly/gX0v4M", get_data, post_data));
+ writeln(cl.getClientHeaders());
+
+output;
+
+ <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+ <HTML>
+ <HEAD>
+ <TITLE>Moved</TITLE>
+ </HEAD>
+ <BODY>
+ <H2>Moved</H2>
+ <A HREF="http://kitakitsune.org/bhole/parametry.php">The requested URL has moved here.</A>
+ <P ALIGN=RIGHT><SMALL><I>AOLserver/4.5.1 on http://127.0.0.1:7300</I></SMALL></P>
+ </BODY>
+ </HTML>
+ Keep-Alive:300 Connection:keep-alive Accept-Language:cs,en-us;q=0.7,en;q=0.3 Accept:text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain User-Agent:Mozilla/5.0 (Windows; U; Windows NT 5.1; cs; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.13 Accept-Charset:utf-8
+
+================================================================================
+================================================================================
+================================================================================
+
+enum RequestType;
+    This enum is used in DHTTPClient class for storing information about request when redirecting.
+
+string[string] FFHeaders;
+    Headers from firefox 3.6.13 on windows
+
+string[string] LFFHeaders;
+    Headers from firefox 3.6.13 on Linux
+
+string[string] IEHeaders;
+    Headers from Internet Explorer 7.0 on Windows NT 6.0
+
+string[string] DefaultHeaders;
+    Headers which will be used with new instances of DHTTPClient.
+
+    If you want different headers for all your future instances of DHTTPClient, just do something like
+
+     dhttpclient.DefaultHeaders = dhttpclient.IEHeaders;
+
+    Standardvalue is FFHeaders.
+
+    See Also:
+    FFHeaders
+
+class HTTPClientException: object.Exception;
+    General exception for all exceptions throwed from this module.
+
+    If you want catch all subexceptions (URLException, InvalidStateException, StatusCodeException), use this exception.
+
+     try{
+         DHTTPClient d = new DHTTPClient();
+         ...
+     }catch(HTTPClientException){
+         // this catch all exceptions which are throwed from DHTTPClient
+     }
+
+
+
+class URLException: dhttpclient.HTTPClientException;
+    This exception is throwed when isn't possible parse or download given page, or is used unknown protocol, etc..
+
+class InvalidStateException: dhttpclient.HTTPClientException;
+
+
+class StatusCodeException: dhttpclient.HTTPClientException;
+    This exception is thrown, when server return StatusCode different than 200 (Ok), or 301 (Redirection).
+
+    Exception contains informations about StatusCode and data returned by server.
+
+    uint getStatusCode();
+        Returns given StatusCode
+
+    string getData();
+        Returns data downloaded from server
+
+class ParsedURL;
+    Class for parsing url.
+
+class HTTPClient;
+    Class which allows download data and send GET and POST requests.
+
+    void setTcpSocketCreator(TcpSocket function(string domain, ushort port) fn);
+        Set TCP Socket creator. Normally, with each request is created new TcpSocket object. Sometimes is usefull have option to set own (for example ssl tunneling, proxy ..).
+
+        Argument fn is pointer to function, which returns TcpSocket and accepts two parameters domain and port (classic TcpSocket parameters).
+
+        Default is function(string domain, ushort port){ return new TcpSocket(new InternetAddress(domain, port)); };
+
+        See Also:
+        TcpSocket
+
+    string get(string URL, string[string] params = null);
+        Downloads given URL.
+
+        If there are some parameters, send them as GET data.
+
+        Example:
+
+         HTTPClient cl = new HTTPClient();
+         cl.get("http://google.com");
+
+        or
+
+         cl.get("http://google.com", ["query":"dhttpclient"]);
+
+        After each request it is possible to get server headers with getResponseHeaders().
+
+        Returns:
+        Data from server.
+
+        Throws:
+        URLException, if isn't set ignore_redirect and when server redirect to server which redirect .. more than is set by setMaxRecursion().
+
+        HTTPClientException when things goes bad.
+
+        StatusCodeException if server returns headers with code different from 200 (Ok), or 301 (Redirect).
+
+        See Also:
+        getResponseHeaders()
+
+    string post(string URL, string[string] params);
+        Send POST data to server and return given data.
+
+        Example:
+
+         HTTPClient cl = new HTTPClient();
+         cl.post("http://some.server/script.php", ["TYPE":"POST"]);
+
+        After each request is possible get server header with getResponseHeaders().
+
+        Returns:
+        Data from server.
+
+        Throws:
+        URLException, if isn't set ignore_redirect and when server redirect to server which redirect .. more than is set by setMaxRecursion().
+
+        HTTPClientException when things goes bad.
+
+        StatusCodeException if server returns headers with code different from 200 (Ok), or 301 (Redirect).
+
+        See Also:
+        getResponseHeaders()
+
+    string getAndPost(string URL, string[string] get, string[string] post);
+        Send GET and POST data in one request.
+
+        Returns:
+        Data from server.
+
+        Throws:
+        URLException, if isn't set ignore_redirect and when server redirect to server which redirect .. more than is set by setMaxRecursion().
+
+        HTTPClientException when things goes bad.
+
+        StatusCodeException if server returns headers with code different from 200 (Ok), or 301 (Redirect).
+
+        See Also:
+        HTTPClient.get()
+
+        HTTPClient.post()
+
+        getResponseHeaders()
+
+    string[string] getResponseHeaders();
+        Return server headers from request.
+
+        Throws:
+        InvalidStateException if request wasn't send yet.
+
+    string[string] getClientHeaders();
+        Return headers which client sends each request.
+
+    void setClientHeaders(string[string] iheaders);
+        Set headers which will client send each request.
+
+        Headers can´t contain Content-Length and Host headers.
+
+    bool getIgnoreRedirect();
+
+
+    void setIgnoreRedirect(bool ir);
+        If is set (true), client ignore StatusCode 301 and doesn't redirect.
+
+        This could be usefull, because some pages return's interestign content which you can't normally see :)
+
+    uint getMaxRecursion();
+
+
+    void setMaxRecursion(uint mr);
+        Set max. redirect in one request.
+
+        Default is 8.
+
+Page generated by Ddoc. This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/). 
