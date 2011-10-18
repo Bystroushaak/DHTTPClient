@@ -230,19 +230,19 @@ public class StatusCodeException:HTTPClientException{
 	private string data;
 
 	this(string msg, uint status_code, string data){
-	    super(msg);
-	    this.status_code = status_code;
-	    this.data = data;
+		super(msg);
+		this.status_code = status_code;
+		this.data = data;
 	}
 
 	/// Returns given StatusCode
 	uint getStatusCode(){
-	    return this.status_code;
+		return this.status_code;
 	}
 
 	/// Returns data downloaded from server
 	string getData(){
-	    return this.data;
+		return this.data;
 	}
 }
 
@@ -259,74 +259,74 @@ public class ParsedURL {
 	private ushort port = 0;
 
 	this(string URL){
-	    string[] t;
+		string[] t;
 		this.url = URL;
 
-	    // Parse protocol
-	    if (URL.indexOf("://") >= 0){
-	        t = split(URL, "://");
+		// Parse protocol
+		if (URL.indexOf("://") >= 0){
+			t = split(URL, "://");
 
-	        this.protocol = t[0].toLower();
-	        URL = t[1];
-	    }else{
-	        throw new URLException("Can't find protocol!");
-	    }
+			this.protocol = t[0].toLower();
+			URL = t[1];
+		}else{
+			throw new URLException("Can't find protocol!");
+		}
 
-	    // Parse domain
-	    if (URL.indexOf("/") >= 0){
-	        t = split(URL, "/");
+		// Parse domain
+		if (URL.indexOf("/") >= 0){
+			t = split(URL, "/");
 
-	        this.domain = t[0];
-	        this.path   = "/" ~ join(t[1 .. $], "/");
-	    }else if (URL.indexOf("?") >= 0){
-	        t = split(URL, "?");
+			this.domain = t[0];
+			this.path   = "/" ~ join(t[1 .. $], "/");
+		}else if (URL.indexOf("?") >= 0){
+			t = split(URL, "?");
 
-	        this.domain = t[0];
-	        this.path   = "/?" ~ join(t[1 .. $], "?");
-	    }else{
-	        this.domain = URL;
-	        this.path   = "/";
-	    }
+			this.domain = t[0];
+			this.path   = "/?" ~ join(t[1 .. $], "?");
+		}else{
+			this.domain = URL;
+			this.path   = "/";
+		}
 
-	    // Parse port
-	    if (this.domain.indexOf(":") >= 0){
-	        t = split(this.domain, ":");
+		// Parse port
+		if (this.domain.indexOf(":") >= 0){
+			t = split(this.domain, ":");
 
-	        this.domain = t[0];
-	        this.port   = to!(ushort)(t[1]);
-	    }else{
-	        // Default ports
-	        switch(this.protocol){
-	            case "ftp":
-	                this.port = 21;
-	                break;
-	            case "http":
-	                this.port = 80;
-	                break;
-	            case "https":
-	                this.port = 443;
-	                break;
-	            case "ssh":
-	                this.port = 22;
-	                break;
-	            default:
-	                throw new URLException("Unknown default port!");
-	                break;
-	        }
-	    }
+			this.domain = t[0];
+			this.port   = to!(ushort)(t[1]);
+		}else{
+			// Default ports
+			switch(this.protocol){
+				case "ftp":
+					this.port = 21;
+					break;
+				case "http":
+					this.port = 80;
+					break;
+				case "https":
+					this.port = 443;
+					break;
+				case "ssh":
+					this.port = 22;
+					break;
+				default:
+					throw new URLException("Unknown default port!");
+					break;
+			}
+		}
 	}
-    
+
 	public string getProtocol(){
-	    return this.protocol;
+		return this.protocol;
 	}
 	public string getDomain(){
-	    return this.domain;
+		return this.domain;
 	}
 	public string getPath(){
-	    return this.path;
+		return this.path;
 	}
 	public ushort getPort(){
-	    return this.port;
+		return this.port;
 	}
 	
 	public void setPath(string path){
@@ -379,7 +379,7 @@ public class HTTPClient{
 	private TcpSocket function(string domain, ushort port) getTcpSocket;
 
 	this(){
-	    this.clientHeaders = cast(string[string]) DefaultHeaders;
+		this.clientHeaders = cast(string[string]) DefaultHeaders;
 
 		// Set default TcpSocket creator
 		this.getTcpSocket = function(string domain, ushort port){
@@ -393,19 +393,19 @@ public class HTTPClient{
 	 * See_also: ParsedURL
 	*/
 	private SocketStream initConnection(ref ParsedURL pu){
-	    if (pu.getProtocol() != "http"){
-	        throw new URLException("Bad protocol!");
-	    }
+		if (pu.getProtocol() != "http"){
+			throw new URLException("Bad protocol!");
+		}
 
-	    TcpSocket tsock;
+		TcpSocket tsock;
 
-	    try{
-	        tsock = this.getTcpSocket(pu.getDomain(), pu.getPort());
-	    }catch(std.socket.AddressException e){
-	        throw new URLException(e.toString());
-	    }
+		try{
+			tsock = this.getTcpSocket(pu.getDomain(), pu.getPort());
+		}catch(std.socket.AddressException e){
+			throw new URLException(e.toString());
+		}
 
-	    return new SocketStream(tsock);
+		return new SocketStream(tsock);
 	}
 
 	/**
@@ -420,63 +420,63 @@ public class HTTPClient{
 		};
 	 *
 	 * See_also: TcpSocket
-    */ 
+	*/ 
 	public void setTcpSocketCreator(TcpSocket function(string domain, ushort port) fn){
 		this.getTcpSocket = fn;
 	}
 
 	/// Send client headers to server.
 	private void sendHeaders(ref SocketStream ss){
-	    // Send headers
-	    foreach(string key, val; this.clientHeaders){
-	        ss.writeString(key ~ ": " ~ val ~ CLRF);
-	    }
+		// Send headers
+		foreach(string key, val; this.clientHeaders){
+			ss.writeString(key ~ ": " ~ val ~ CLRF);
+		}
 	}
 
 	/// Urlencode all given parameters.
 	private string urlEncodeParams(string[string] headers){
-	    string ostr = "";
+		string ostr = "";
 
-	    foreach(string key, val; headers){
-	        ostr ~= std.uri.encode(key) ~ "=" ~ std.uri.encode(val) ~ "&";
-	    }
+		foreach(string key, val; headers){
+			ostr ~= std.uri.encode(key) ~ "=" ~ std.uri.encode(val) ~ "&";
+		}
 
-	    return ostr;
+		return ostr;
 	}
 
 	/// Read all headers from server.
 	private string[string] readHeaders(ref SocketStream ss){
-	    string s = " ";
-	    string[string] headers;
-	    uint ioc = 0;
+		string s = " ";
+		string[string] headers;
+		uint ioc = 0;
 
-	    // Read status line
-	    s = cast(string) ss.readLine();
-	    ioc = s.indexOf(HTTP_VERSION);
-	    if (ioc >= 0){
-	        headers["StatusCode"] = s.replace(cast(string) HTTP_VERSION, "").strip();
-	    }else{
-	        headers["StatusCode"] = s;
-	    }
+		// Read status line
+		s = cast(string) ss.readLine();
+		ioc = s.indexOf(HTTP_VERSION);
+		if (ioc >= 0){
+			headers["StatusCode"] = s.replace(cast(string) HTTP_VERSION, "").strip();
+		}else{
+			headers["StatusCode"] = s;
+		}
 
-	    // Read headers
-	    s = " ";
-	    while (s.length){
-	        s = cast(string) ss.readLine();
+		// Read headers
+		s = " ";
+		while (s.length){
+			s = cast(string) ss.readLine();
 
-	        if (!s.length)
-	            break;
+			if (!s.length)
+				break;
 
-	        // Parse headers
-	        ioc = s.indexOf(":");
-	        if (ioc >= 0){
-	            headers[s[0 .. ioc]] = s[(ioc + 1) .. $].strip();
-	        }else{
-	            headers[s] = "";
-	        }
-	    }
+			// Parse headers
+			ioc = s.indexOf(":");
+			if (ioc >= 0){
+				headers[s[0 .. ioc]] = s[(ioc + 1) .. $].strip();
+			}else{
+				headers[s] = "";
+			}
+		}
 
-	    return headers;
+		return headers;
 	}
 
 	protected bool isHex(string s){
@@ -492,23 +492,23 @@ public class HTTPClient{
 
 	/// Read data from string and return them as string (which can be converted into anything else).
 	private string readString(ref SocketStream ss){
-	    uint len;
-	    string page, tmp;
+		uint len;
+		string page, tmp;
 
-	    if (("StatusCode" in this.serverHeaders) && (this.serverHeaders["StatusCode"].startsWith("1") || this.serverHeaders["StatusCode"].startsWith("204" || this.serverHeaders["StatusCode"].startsWith("304")))){
-	        // Special codes with no data - defined in RFC 2616, section 4.4
-	        // (http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4)
-	        page = "";
-	    }else if ("Transfer-Encoding" in this.serverHeaders && this.serverHeaders["Transfer-Encoding"].toLower() == "chunked"){
-	        // http://en.wikipedia.org/wiki/Chunked_transfer_encoding
-	        len = 1;
-	        page = "";
-	        while (len != 0){
-	            // Skip blank lines
-	            tmp = "";
-	            while (tmp.length == 0){
-	                tmp = cast(string) ss.readLine();
-	            }
+		if (("StatusCode" in this.serverHeaders) && (this.serverHeaders["StatusCode"].startsWith("1") || this.serverHeaders["StatusCode"].startsWith("204" || this.serverHeaders["StatusCode"].startsWith("304")))){
+			// Special codes with no data - defined in RFC 2616, section 4.4
+			// (http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4)
+			page = "";
+		}else if ("Transfer-Encoding" in this.serverHeaders && this.serverHeaders["Transfer-Encoding"].toLower() == "chunked"){
+			// http://en.wikipedia.org/wiki/Chunked_transfer_encoding
+			len = 1;
+			page = "";
+			while (len != 0){
+				// Skip blank lines
+				tmp = "";
+				while (tmp.length == 0){
+					tmp = cast(string) ss.readLine();
+				}
 
 				// It looks, that some servers sends responses not exactly RFC compatible :/ (or, I'm idiot which can't read :S)
 				if (this.isHex(tmp)){
@@ -523,104 +523,104 @@ public class HTTPClient{
 				}else{
 					page ~= tmp ~ "\n";
 				}
-	        }
-	    }else if ("Content-Length" in this.serverHeaders){
-	        len = to!(uint)(this.serverHeaders["Content-Length"]);
-	        page = cast(string) ss.readString(to!(size_t)(len + 1))[1 .. $];
-	    }else{
-	        // Read until closed connection
-	        while (!ss.socket().isAlive())
-	            page ~= ss.readLine() ~ "\n";
-	    }
+			}
+		}else if ("Content-Length" in this.serverHeaders){
+			len = to!(uint)(this.serverHeaders["Content-Length"]);
+			page = cast(string) ss.readString(to!(size_t)(len + 1))[1 .. $];
+		}else{
+			// Read until closed connection
+			while (!ss.socket().isAlive())
+				page ~= ss.readLine() ~ "\n";
+		}
 
-	    return page;
+		return page;
 	}
 
 	private string readHeadersAndBody(ref SocketStream ss){
-	    // Read headers
-	    this.serverHeaders = readHeaders(ss);
-	    this.initiated = true;
+		// Read headers
+		this.serverHeaders = readHeaders(ss);
+		this.initiated = true;
 
-	    // Read string..
-	    string page = readString(ss);
+		// Read string..
+		string page = readString(ss);
 
-	    // Close connection
-	    ss.close();
+		// Close connection
+		ss.close();
 
-	    if (this.serverHeaders["StatusCode"].startsWith("4")){
-	        throw new URLException(this.serverHeaders["StatusCode"]);
-	    }
+		if (this.serverHeaders["StatusCode"].startsWith("4")){
+			throw new URLException(this.serverHeaders["StatusCode"]);
+		}
 
-	    return page;
+		return page;
 	}
 	
 	/// Mix url with parameters for get request.
 	private string parseGetURL(string URL, string[string] data){
-	    string ostr = URL;
+		string ostr = URL;
 
-	    // Append url with ?, & and headers..
-	    if (data.length){
-	        if (ostr.count("?")){
-	            if (ostr.count("&")){
-	                if (ostr.endsWith("&"))
-	                    ostr ~= urlEncodeParams(data);
-	                else
-	                    ostr ~= "&" ~ urlEncodeParams(data);
-	            }else{
-	                if (ostr.count("="))
-	                    ostr ~= "&" ~ urlEncodeParams(data);
-	                else
-	                    ostr ~= urlEncodeParams(data);
-	            }
-	        }else{
-	            ostr ~= "?" ~ urlEncodeParams(data);
-	        }
-	    }
+		// Append url with ?, & and headers..
+		if (data.length){
+			if (ostr.count("?")){
+				if (ostr.count("&")){
+					if (ostr.endsWith("&"))
+						ostr ~= urlEncodeParams(data);
+					else
+						ostr ~= "&" ~ urlEncodeParams(data);
+				}else{
+					if (ostr.count("="))
+						ostr ~= "&" ~ urlEncodeParams(data);
+					else
+						ostr ~= urlEncodeParams(data);
+				}
+			}else{
+				ostr ~= "?" ~ urlEncodeParams(data);
+			}
+		}
 
-	    return ostr;
+		return ostr;
 	}
 	
 	private string handleExceptions(string data, ParsedURL pu){
-	    // Exceptions handling
-	    if ("StatusCode" in this.serverHeaders && !this.serverHeaders["StatusCode"].startsWith("200")){
-	        // React on 301 StatusCode (redirection)
-	        if (this.serverHeaders["StatusCode"].startsWith("301") || this.serverHeaders["StatusCode"].startsWith("302")){
-	            // Check if redirection is allowed
-	            if (! this.ignore_redirect){
-	                // Be carefull how many redirections was allready did
-	                if (this.recursion++ <= this.max_recursion){
-	                	// Redirection to different path at same server
-	                	if (this.serverHeaders["Location"].indexOf("://") < 0){
-	                		pu.setPath(this.serverHeaders["Location"]);
-	                		this.serverHeaders["Location"] = pu.toString();
-	                	}
-	                	
-	                    final switch(this.request_type){
-	                        case RequestType.GET:
-	                            return this.get(this.serverHeaders["Location"], this.get_params);
-	                        case RequestType.POST:
-	                            return this.post(this.serverHeaders["Location"], this.post_params);
-	                        case RequestType.GETANDPOST:
-	                            return this.getAndPost(this.serverHeaders["Location"], this.get_params, this.post_params);
-	                        case RequestType.NONEYET:
-	                            throw new HTTPClientException("This is pretty strange exception - code flow _NEVER_ shoud be here!");
-	                            break;
-	                    }
-	                }else{
-	                    this.recursion = 0;
-	                    throw new URLException("Error - too many (" ~ std.conv.to!(string)(this.max_recursion) ~ ") redirections.");
-	                }
-	            }else{ // If redirection isn't allowed, return page with redirection headers
-	                this.recursion = 0;
-	                return data;
-	            }
-	        }else{ // Every other StatusCode throwing exception
-	            throw new StatusCodeException(this.serverHeaders["StatusCode"], to!(uint)(this.serverHeaders["StatusCode"][0 .. 3]), data);
-	        }
-	    }else{ // StatusCode 200 - Ok
-	        this.recursion = 0;
-	        return data;
-	    }
+		// Exceptions handling
+		if ("StatusCode" in this.serverHeaders && !this.serverHeaders["StatusCode"].startsWith("200")){
+			// React on 301 StatusCode (redirection)
+			if (this.serverHeaders["StatusCode"].startsWith("301") || this.serverHeaders["StatusCode"].startsWith("302")){
+				// Check if redirection is allowed
+				if (! this.ignore_redirect){
+					// Be carefull how many redirections was allready did
+					if (this.recursion++ <= this.max_recursion){
+						// Redirection to different path at same server
+						if (this.serverHeaders["Location"].indexOf("://") < 0){
+							pu.setPath(this.serverHeaders["Location"]);
+							this.serverHeaders["Location"] = pu.toString();
+						}
+						
+						final switch(this.request_type){
+							case RequestType.GET:
+								return this.get(this.serverHeaders["Location"], this.get_params);
+							case RequestType.POST:
+								return this.post(this.serverHeaders["Location"], this.post_params);
+							case RequestType.GETANDPOST:
+								return this.getAndPost(this.serverHeaders["Location"], this.get_params, this.post_params);
+							case RequestType.NONEYET:
+								throw new HTTPClientException("This is pretty strange exception - code flow _NEVER_ shoud be here!");
+								break;
+						}
+					}else{
+						this.recursion = 0;
+						throw new URLException("Error - too many (" ~ std.conv.to!(string)(this.max_recursion) ~ ") redirections.");
+					}
+				}else{ // If redirection isn't allowed, return page with redirection headers
+					this.recursion = 0;
+					return data;
+				}
+			}else{ // Every other StatusCode throwing exception
+				throw new StatusCodeException(this.serverHeaders["StatusCode"], to!(uint)(this.serverHeaders["StatusCode"][0 .. 3]), data);
+			}
+		}else{ // StatusCode 200 - Ok
+			this.recursion = 0;
+			return data;
+		}
 	}
 
 	 /**
@@ -654,26 +654,26 @@ public class HTTPClient{
 	 *     getResponseHeaders()
 	*/
 	public string get(string URL, string[string] params = null){
-	    // Save status for case of redirection
-	    this.request_type = RequestType.GET;
-	    this.get_params = params;
+		// Save status for case of redirection
+		this.request_type = RequestType.GET;
+		this.get_params = params;
 
-	    // Parse URL
-	    ParsedURL pu = new ParsedURL(this.parseGetURL(URL, params));
+		// Parse URL
+		ParsedURL pu = new ParsedURL(this.parseGetURL(URL, params));
 
-	    // Initialize connection
-	    SocketStream ss = initConnection(pu);
+		// Initialize connection
+		SocketStream ss = initConnection(pu);
 
-	    // Write GET request
-	    ss.writeString("GET " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
-	    ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
-	    this.sendHeaders(ss);
-	    ss.writeString(CLRF);
+		// Write GET request
+		ss.writeString("GET " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
+		ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
+		this.sendHeaders(ss);
+		ss.writeString(CLRF);
 
-	    ss.flush();
+		ss.flush();
 
-	    // Read everything and close connection, handle exceptions
-	    return handleExceptions(readHeadersAndBody(ss), pu);
+		// Read everything and close connection, handle exceptions
+		return handleExceptions(readHeadersAndBody(ss), pu);
 	}
 
 	/**
@@ -701,37 +701,37 @@ public class HTTPClient{
 	 *     getResponseHeaders()
 	 */
 	public string post(string URL, string[string] params){
-	    // Save status for case of redirection
-	    if (this.request_type != RequestType.GETANDPOST){
-	        this.request_type = RequestType.POST;
-	        this.post_params = params;
-	    }
+		// Save status for case of redirection
+		if (this.request_type != RequestType.GETANDPOST){
+			this.request_type = RequestType.POST;
+			this.post_params = params;
+		}
 
-	    // Parse URL
-	    ParsedURL pu = new ParsedURL(URL);
+		// Parse URL
+		ParsedURL pu = new ParsedURL(URL);
 
-	    // Encode params
-	    string enc_params = this.urlEncodeParams(params);
+		// Encode params
+		string enc_params = this.urlEncodeParams(params);
 
-	    // Initialize connection
-	    SocketStream ss = initConnection(pu);
+		// Initialize connection
+		SocketStream ss = initConnection(pu);
 
-	    // Write GET request
-	    ss.writeString("POST " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
-	    ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
-	    this.sendHeaders(ss);
-	    ss.writeString("Content-Type: application/x-www-form-urlencoded" ~ CLRF);
-	    ss.writeString("Content-Length: " ~ std.conv.to!(string)(enc_params.length) ~ CLRF);
-	    ss.writeString(CLRF);
+		// Write GET request
+		ss.writeString("POST " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
+		ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
+		this.sendHeaders(ss);
+		ss.writeString("Content-Type: application/x-www-form-urlencoded" ~ CLRF);
+		ss.writeString("Content-Length: " ~ std.conv.to!(string)(enc_params.length) ~ CLRF);
+		ss.writeString(CLRF);
 
-	    // Write data
-	    ss.writeString(enc_params);
-	    ss.writeString(CLRF);
+		// Write data
+		ss.writeString(enc_params);
+		ss.writeString(CLRF);
 
-	    ss.flush();
+		ss.flush();
 
-	    // Read everything and close connection, handle exceptions
-	    return handleExceptions(readHeadersAndBody(ss), pu);
+		// Read everything and close connection, handle exceptions
+		return handleExceptions(readHeadersAndBody(ss), pu);
 	}
 
 	/**
@@ -755,12 +755,12 @@ public class HTTPClient{
 	 *     getResponseHeaders()
 	*/
 	public string getAndPost(string URL, string[string] get, string[string] post){
-	    // Save status for case of redirection
-	    this.request_type = RequestType.GETANDPOST;
-	    this.get_params = get;
-	    this.post_params = post;
+		// Save status for case of redirection
+		this.request_type = RequestType.GETANDPOST;
+		this.get_params = get;
+		this.post_params = post;
 
-	    return this.post(parseGetURL(URL, get), post);
+		return this.post(parseGetURL(URL, get), post);
 	}
 
 	/**
@@ -770,17 +770,17 @@ public class HTTPClient{
 	 *     InvalidStateException if request wasn't send yet.
 	*/
 	public string[string] getResponseHeaders(){
-	    if (this.initiated)
-	        return this.serverHeaders;
-	    else
-	        throw new InvalidStateException("Not initiated yet.");
+		if (this.initiated)
+			return this.serverHeaders;
+		else
+			throw new InvalidStateException("Not initiated yet.");
 	}
 
 	/**
 	 * Return headers which client sends each request.
 	*/
 	public string[string] getClientHeaders(){
-	    return this.clientHeaders;
+		return this.clientHeaders;
 	}
 	/**
 	 * Set headers which will client send each request.
@@ -788,20 +788,20 @@ public class HTTPClient{
 	 * Headers can´t contain Content-Length and Host headers.
 	*/
 	public void setClientHeaders(string[string] iheaders){
-	    // Filter critical headers
-	    string[string] fheaders;
-	    foreach(string key, val; iheaders){
-	        if (key != "Content-Length" && key != "Host"){
-	            fheaders[key] = val;
-	        }
-	    }
+		// Filter critical headers
+		string[string] fheaders;
+		foreach(string key, val; iheaders){
+			if (key != "Content-Length" && key != "Host"){
+				fheaders[key] = val;
+			}
+		}
 
-	    this.clientHeaders = fheaders;
+		this.clientHeaders = fheaders;
 	}
 
 	///
 	public bool getIgnoreRedirect(){
-	    return this.ignore_redirect;
+		return this.ignore_redirect;
 	}
 	/**
 	 * If is set (true), client ignore StatusCode 301 and doesn't redirect.
@@ -814,7 +814,7 @@ public class HTTPClient{
 
 	///
 	public uint getMaxRecursion(){
-	    return this.max_recursion;
+		return this.max_recursion;
 	}
 	/**
 	 * Set max. redirect in one request.
@@ -822,6 +822,6 @@ public class HTTPClient{
 	 * Default is 8.
 	*/
 	public void setMaxRecursion(uint mr){
-	    this.max_recursion = mr;
+		this.max_recursion = mr;
 	}
 }
