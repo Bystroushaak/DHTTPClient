@@ -12,8 +12,8 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.4.1
- * Date:    23.07.2011
+ * Version: 1.5.0
+ * Date:    18.10.2011
  * 
  * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/).
  * 
@@ -479,6 +479,17 @@ public class HTTPClient{
 	    return headers;
 	}
 
+	protected bool isHex(string s){
+		foreach(c; s){
+			if (! ((c >= '0' && c <= '9') || 
+			       (c >= 'A' && c <= 'F') ||
+			       (c >= 'a' && c <= 'f')))
+				return false;
+		}
+		
+		return true;
+	}
+
 	/// Read data from string and return them as string (which can be converted into anything else).
 	private string readString(ref SocketStream ss){
 	    uint len;
@@ -499,24 +510,19 @@ public class HTTPClient{
 	                tmp = cast(string) ss.readLine();
 	            }
 
-	            // tmp.isNumeric probably generates exception if tmp is some kind of nonUTF string
-	            try{
-	                // It looks, that some servers sends responses not exactly RFC compatible :/ (or, I'm idiot which can't read :S)
-	                if (tmp.isNumeric()){
-	                    // Read size in hexa
-	                    std.c.stdio.sscanf(cast(char*) tmp, "%x", &len);
+				// It looks, that some servers sends responses not exactly RFC compatible :/ (or, I'm idiot which can't read :S)
+				if (this.isHex(tmp)){
+					// Read size in hexa
+					len = std.conv.parse!int(tmp, 16);
 
-	                    if (len == 0)
-	                        break;
+					if (len == 0)
+						break;
 
-	                    // Read data
-	                    page ~= cast(string) ss.readString(to!(size_t)(len)) ~ "\n";
-	                }else{
-	                    page ~= tmp ~ "\n";
-	                }
-	            }catch(core.exception.UnicodeException){
-	                page ~= tmp ~ "\n";
-	            }
+					// Read data
+					page ~= cast(string) ss.readString(to!(size_t)(len)) ~ "\n";
+				}else{
+					page ~= tmp ~ "\n";
+				}
 	        }
 	    }else if ("Content-Length" in this.serverHeaders){
 	        len = to!(uint)(this.serverHeaders["Content-Length"]);
@@ -547,7 +553,7 @@ public class HTTPClient{
 
 	    return page;
 	}
-
+	
 	/// Mix url with parameters for get request.
 	private string parseGetURL(string URL, string[string] data){
 	    string ostr = URL;
@@ -573,7 +579,7 @@ public class HTTPClient{
 
 	    return ostr;
 	}
-
+	
 	private string handleExceptions(string data, ParsedURL pu){
 	    // Exceptions handling
 	    if ("StatusCode" in this.serverHeaders && !this.serverHeaders["StatusCode"].startsWith("200")){
