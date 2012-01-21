@@ -12,8 +12,8 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.5.2
- * Date:    20.01.2012
+ * Version: 1.5.3
+ * Date:    21.01.2012
  * 
  * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/).
  * 
@@ -593,7 +593,7 @@ public class HTTPClient{
 	
 	private string handleExceptions(string data, ParsedURL pu){
 		// Exceptions handling
-		if ("StatusCode" in this.serverHeaders && !this.serverHeaders["StatusCode"].startsWith("200")){
+		if ("StatusCode" in this.serverHeaders && !this.serverHeaders["StatusCode"].startsWith("200") && !(this.serverHeaders["StatusCode"].indexOf("200 OK") > 0)){
 			// React on 301 StatusCode (redirection)
 			if (this.serverHeaders["StatusCode"].startsWith("301") || this.serverHeaders["StatusCode"].startsWith("302")){
 				// Check if redirection is allowed
@@ -626,9 +626,18 @@ public class HTTPClient{
 					return data;
 				}
 			}else{ // Every other StatusCode throwing exception
-				if ("StatusCode" in this.serverHeaders)
-					throw new StatusCodeException(this.serverHeaders["StatusCode"], to!(uint)(this.serverHeaders["StatusCode"][0 .. 3]), data);
-				else
+				if ("StatusCode" in this.serverHeaders){
+					uint tmp_status_code; 
+					
+					// HTTP 1.0 creates status codes, which doesn't begin with number and throw conversion error
+					// this is liiiittle bit ugly, but it can fix the problem
+					try
+						tmp_status_code =  to!(uint)(this.serverHeaders["StatusCode"][0 .. 3]);
+					catch(Exception)
+						throw new StatusCodeException(this.serverHeaders["StatusCode"]);
+					
+					throw new StatusCodeException(this.serverHeaders["StatusCode"], tmp_status_code, data);
+				}else
 					throw new StatusCodeException("Can't find status code - connection lost?");
 			}
 		}else{ // StatusCode 200 - Ok
