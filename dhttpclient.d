@@ -345,7 +345,7 @@ public class ParsedURL {
 		this.path = path;
 	}
 
-	public string toString(){
+	override public string toString(){
 		return this.url;
 	}
 }
@@ -381,10 +381,11 @@ public class HTTPClient{
 
 	// StatusCode 301 (Redirection) handling
 	private bool ignore_redirect = false; // If true, redirects are ignored.
+	
 	// Maximal recursion in one request (if server return redirection to another server, ant he to another, it should cause DoS..)
 	private uint max_recursion = 8;
-	private uint recursion; // Variable where is stored how many redirection was done
-	private string[string] get_params, post_params; // In theese variables are stored parameters when client is redirected to another server
+	private uint recursion;                                 // Variable where is stored how many redirection was done
+	private string[string] get_params, post_params;         // In theese variables are stored parameters when client is redirected to another server
 	private RequestType request_type = RequestType.NONEYET; // Which method call in case of redirection..
 
 	private TcpSocket function(string domain, ushort port) getTcpSocket;
@@ -505,10 +506,15 @@ public class HTTPClient{
 	private string readString(ref SocketStream ss){
 		uint len;
 		string page, tmp;
-
-		if (("StatusCode" in this.serverHeaders) && (this.serverHeaders["StatusCode"].startsWith("1") || this.serverHeaders["StatusCode"].startsWith("204" || this.serverHeaders["StatusCode"].startsWith("304")))){
-			// Special codes with no data - defined in RFC 2616, section 4.4
-			// (http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4)
+		
+		// I am too lazy write this.serverHeaders["StatusCode"]; again, again and again..
+		string status_code;
+		if ("StatusCode" in this.serverHeaders)
+			status_code = this.serverHeaders["StatusCode"];
+		
+		// Special codes with no data - defined in RFC 2616, section 4.4
+		// (http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4)
+		if (status_code != "" && (status_code.startsWith("1") || status_code.startsWith("204") || status_code.startsWith("304"))){
 			page = "";
 		}else if ("Transfer-Encoding" in this.serverHeaders && this.serverHeaders["Transfer-Encoding"].toLower() == "chunked"){
 			// http://en.wikipedia.org/wiki/Chunked_transfer_encoding
@@ -592,10 +598,15 @@ public class HTTPClient{
 	}
 	
 	private string handleExceptions(string data, ParsedURL pu){
+		// it was little bit annoying write this.serverHeaders["StatusCode"] again, again and again
+		string status_code;
+		if ("StatusCode" in this.serverHeaders)
+			status_code = this.serverHeaders["StatusCode"];
+		
 		// Exceptions handling
-		if ("StatusCode" in this.serverHeaders && !this.serverHeaders["StatusCode"].startsWith("200") && !(this.serverHeaders["StatusCode"].indexOf("200 OK") > 0)){
+		if (status_code != "" && !status_code.startsWith("200") && !(status_code.indexOf("200 OK") > 0)){
 			// React on 301 StatusCode (redirection)
-			if (this.serverHeaders["StatusCode"].startsWith("301") || this.serverHeaders["StatusCode"].startsWith("302")){
+			if (status_code.startsWith("301") || status_code.startsWith("302")){
 				// Check if redirection is allowed
 				if (! this.ignore_redirect){
 					// Be carefull how many redirections was allready did
@@ -615,7 +626,6 @@ public class HTTPClient{
 								return this.getAndPost(this.serverHeaders["Location"], this.get_params, this.post_params);
 							case RequestType.NONEYET:
 								throw new HTTPClientException("This is pretty strange exception - code flow _NEVER_ shoud be here!");
-								break;
 						}
 					}else{
 						this.recursion = 0;
@@ -632,11 +642,11 @@ public class HTTPClient{
 					// HTTP 1.0 creates status codes, which doesn't begin with number and throw conversion error
 					// this is liiiittle bit ugly, but it can fix the problem
 					try
-						tmp_status_code =  to!(uint)(this.serverHeaders["StatusCode"][0 .. 3]);
+						tmp_status_code =  to!(uint)(status_code[0 .. 3]);
 					catch(Exception)
-						throw new StatusCodeException(this.serverHeaders["StatusCode"]);
+						throw new StatusCodeException(status_code);
 					
-					throw new StatusCodeException(this.serverHeaders["StatusCode"], tmp_status_code, data);
+					throw new StatusCodeException(status_code, tmp_status_code, data);
 				}else
 					throw new StatusCodeException("Can't find status code - connection lost?");
 			}
