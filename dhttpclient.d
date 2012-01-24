@@ -450,7 +450,7 @@ public class HTTPClient{
 		string ostr = "";
 
 		foreach(string key, val; headers){
-			ostr ~= std.uri.encode(key) ~ "=" ~ std.uri.encode(val) ~ "&";
+			ostr ~= std.uri.encodeComponent(key) ~ "=" ~ std.uri.encodeComponent(val) ~ "&";
 		}
 
 		return ostr;
