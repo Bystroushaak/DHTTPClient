@@ -12,10 +12,13 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.6.0
+ * Version: 1.6.1
  * Date:    25.01.2012
  * 
- * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/).
+ * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/). 
+ * 
+ * This means that you can do whatever you want, but you have to add authors name. 
+ * If you dont like this licence, send me email and I can release module under different conditions.
  * 
  * Examples:
  * Initialization;
@@ -113,7 +116,6 @@
  * ---
  * 
 */
-
 module dhttpclient;
 
 
@@ -406,24 +408,22 @@ public class HTTPClient{
 	 * See_also: ParsedURL
 	*/
 	private SocketStream initConnection(ref ParsedURL pu){
-		if (pu.getProtocol() != "http"){
+		if (! (pu.getProtocol() == "http" || pu.getProtocol() == "https")) // support only http/https
 			throw new URLException("Bad protocol!");
-		}
 
 		TcpSocket tsock;
 
-		try{
+		try
 			tsock = this.getTcpSocket(pu.getDomain(), pu.getPort());
-		}catch(std.socket.AddressException e){
+		catch(std.socket.AddressException e)
 			throw new URLException(e.toString());
-		}
 
 		return new SocketStream(tsock);
 	}
 
 	/**
 	 * Set TCP Socket creator. Normally, with each request is created new TcpSocket object.
-	 * Sometimes is useful have option to set own (for example ssl tunnelling, proxy ..).
+	 * Sometimes is useful have option to set own (for example https support, proxy ..).
 	 *
 	 * Argument fn is pointer to function, which returns TcpSocket and accepts two parameters
 	 * domain and port (classic TcpSocket parameters).
@@ -441,18 +441,16 @@ public class HTTPClient{
 	/// Send client headers to server.
 	private void sendHeaders(ref SocketStream ss){
 		// Send headers
-		foreach(string key, val; this.clientHeaders){
+		foreach(string key, val; this.clientHeaders)
 			ss.writeString(key ~ ": " ~ val ~ CLRF);
-		}
 	}
 
 	/// Urlencode all given parameters.
 	private string urlEncodeParams(string[string] headers){
 		string ostr = "";
 
-		foreach(string key, val; headers){
+		foreach(string key, val; headers)
 			ostr ~= std.uri.encodeComponent(key) ~ "=" ~ std.uri.encodeComponent(val) ~ "&";
-		}
 
 		return ostr;
 	}
@@ -482,11 +480,10 @@ public class HTTPClient{
 
 			// Parse headers
 			ioc = s.indexOf(":");
-			if (ioc >= 0){
+			if (ioc >= 0)
 				headers[s[0 .. ioc]] = s[(ioc + 1) .. $].strip();
-			}else{
+			else
 				headers[s] = "";
-			}
 		}
 
 		return headers;
@@ -524,9 +521,8 @@ public class HTTPClient{
 			while (len != 0){
 				// Skip blank lines
 				tmp = "";
-				while (tmp.length == 0){
+				while (tmp.length == 0)
 					tmp = cast(string) ss.readLine();
-				}
 
 				// It looks, that some servers sends responses not exactly RFC compatible :/ (or, I'm idiot which can't read :S)
 				if (this.isHex(tmp)){
@@ -565,9 +561,8 @@ public class HTTPClient{
 		// Close connection
 		ss.close();
 
-		if (this.serverHeaders["StatusCode"].startsWith("4")){
+		if (this.serverHeaders["StatusCode"].startsWith("4"))
 			throw new URLException(this.serverHeaders["StatusCode"]);
-		}
 
 		return page;
 	}
@@ -590,9 +585,8 @@ public class HTTPClient{
 					else
 						ostr ~= urlEncodeParams(data);
 				}
-			}else{
+			}else
 				ostr ~= "?" ~ urlEncodeParams(data);
-			}
 		}
 
 		return ostr;
@@ -823,11 +817,9 @@ public class HTTPClient{
 	public void setClientHeaders(string[string] iheaders){
 		// Filter critical headers
 		string[string] fheaders;
-		foreach(string key, val; iheaders){
-			if (key != "Content-Length" && key != "Host"){
+		foreach(string key, val; iheaders)
+			if (key != "Content-Length" && key != "Host")
 				fheaders[key] = val;
-			}
-		}
 
 		this.clientHeaders = fheaders;
 	}
