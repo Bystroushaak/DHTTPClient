@@ -1,5 +1,5 @@
 /**
- * Simple socket wrapper, which allows download data and send GET and POST requests.
+ * Simple socket wrapper, which allows download data and send GET/POST requests.
  *
  * Sources;
  * 
@@ -12,8 +12,8 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.5.3
- * Date:    21.01.2012
+ * Version: 1.6.0
+ * Date:    25.01.2012
  * 
  * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/).
  * 
@@ -373,8 +373,9 @@ unittest{
  * Class which allows download data and send GET and POST requests.
 */ 
 public class HTTPClient{
-	private const string CLRF = "\r\n";
-	private const string HTTP_VERSION = "HTTP/1.1";
+	private const string CLRF             = "\r\n";
+	private const string OLD_HTTP_VERSION = "HTTP/1.0";
+	private const string HTTP_VERSION     = "HTTP/1.1";
 	private string[string] serverHeaders; // In this variable are after each request stored headers from server.
 	private string[string] clientHeaders; // Headers which send client to the server.
 	private bool initiated = false;       // This variable is set to true after first request.
@@ -385,7 +386,7 @@ public class HTTPClient{
 	// Maximal recursion in one request (if server return redirection to another server, ant he to another, it should cause DoS..)
 	private uint max_recursion = 8;
 	private uint recursion;                                 // Variable where is stored how many redirection was done
-	private string[string] get_params, post_params;         // In theese variables are stored parameters when client is redirected to another server
+	private string[string] get_params, post_params;         // In these variables are stored parameters when client is redirected to another server
 	private RequestType request_type = RequestType.NONEYET; // Which method call in case of redirection..
 
 	private TcpSocket function(string domain, ushort port) getTcpSocket;
@@ -422,7 +423,7 @@ public class HTTPClient{
 
 	/**
 	 * Set TCP Socket creator. Normally, with each request is created new TcpSocket object.
-	 * Sometimes is usefull have option to set own (for example ssl tunneling, proxy ..).
+	 * Sometimes is useful have option to set own (for example ssl tunnelling, proxy ..).
 	 *
 	 * Argument fn is pointer to function, which returns TcpSocket and accepts two parameters
 	 * domain and port (classic TcpSocket parameters).
@@ -464,12 +465,12 @@ public class HTTPClient{
 
 		// Read status line
 		s = cast(string) ss.readLine();
-		ioc = s.indexOf(HTTP_VERSION);
-		if (ioc >= 0){
+		if (s.indexOf(HTTP_VERSION) >= 0)
 			headers["StatusCode"] = s.replace(cast(string) HTTP_VERSION, "").strip();
-		}else{
+		else if (s.indexOf(OLD_HTTP_VERSION))  // HTTP/1.0 support
+			headers["StatusCode"] = s.replace(cast(string) OLD_HTTP_VERSION, "").strip();
+		else
 			headers["StatusCode"] = s;
-		}
 
 		// Read headers
 		s = " ";
@@ -605,11 +606,11 @@ public class HTTPClient{
 		
 		// Exceptions handling
 		if (status_code != "" && !status_code.startsWith("200") && !(status_code.indexOf("200 OK") > 0)){
-			// React on 301 StatusCode (redirection)
+			// React to 301 StatusCode (redirection)
 			if (status_code.startsWith("301") || status_code.startsWith("302")){
 				// Check if redirection is allowed
 				if (! this.ignore_redirect){
-					// Be carefull how many redirections was allready did
+					// Be careful how many redirections was allready done
 					if (this.recursion++ <= this.max_recursion){
 						// Redirection to different path at same server
 						if (this.serverHeaders["Location"].indexOf("://") < 0){
@@ -639,8 +640,7 @@ public class HTTPClient{
 				if ("StatusCode" in this.serverHeaders){
 					uint tmp_status_code; 
 					
-					// HTTP 1.0 creates status codes, which doesn't begin with number and throw conversion error
-					// this is liiiittle bit ugly, but it can fix the problem
+					// Try parse numeric status code, if fails, use whole string
 					try
 						tmp_status_code =  to!(uint)(status_code[0 .. 3]);
 					catch(Exception)
@@ -749,7 +749,7 @@ public class HTTPClient{
 		// Initialize connection
 		SocketStream ss = initConnection(pu);
 
-		// Write GET request
+		// Write POST request
 		ss.writeString("POST " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
 		ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
 		this.sendHeaders(ss);
@@ -839,7 +839,7 @@ public class HTTPClient{
 	/**
 	 * If is set (true), client ignore StatusCode 301 and doesn't redirect.
 	 *
-	 * This could be usefull, because some pages return's interestign content which you can't normally see :)
+	 * This could be useful, because some pages return's interesting content which you can't normally see :)
 	*/
 	public void setIgnoreRedirect(bool ir){
 	    this.ignore_redirect = ir;
