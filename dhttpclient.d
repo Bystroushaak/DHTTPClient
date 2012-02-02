@@ -12,8 +12,8 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.6.1
- * Date:    25.01.2012
+ * Version: 1.6.2
+ * Date:    02.02.2012
  * 
  * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/). 
  * 
@@ -534,9 +534,8 @@ public class HTTPClient{
 
 					// Read data
 					page ~= cast(string) ss.readString(to!(size_t)(len)) ~ "\n";
-				}else{
+				}else
 					page ~= tmp ~ "\n";
-				}
 			}
 		}else if ("Content-Length" in this.serverHeaders){
 			len = to!(uint)(this.serverHeaders["Content-Length"]);
@@ -693,7 +692,12 @@ public class HTTPClient{
 
 		// Write GET request
 		ss.writeString("GET " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
-		ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
+		
+		if (pu.getPort() == 80)
+			ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
+		else
+			ss.writeString("Host: " ~ pu.getDomain() ~ ":" ~ to!string(pu.getPort()) ~ " " ~ CLRF);
+		
 		this.sendHeaders(ss);
 		ss.writeString(CLRF);
 
@@ -745,7 +749,12 @@ public class HTTPClient{
 
 		// Write POST request
 		ss.writeString("POST " ~ pu.getPath() ~ " " ~ HTTP_VERSION ~ CLRF);
-		ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
+		
+		if (pu.getPort() == 80)
+			ss.writeString("Host: " ~ pu.getDomain() ~ CLRF);
+		else
+			ss.writeString("Host: " ~ pu.getDomain() ~ ":" ~ to!string(pu.getPort()) ~ " " ~ CLRF);
+		
 		this.sendHeaders(ss);
 		ss.writeString("Content-Type: application/x-www-form-urlencoded" ~ CLRF);
 		ss.writeString("Content-Length: " ~ std.conv.to!(string)(enc_params.length) ~ CLRF);
