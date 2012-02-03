@@ -12,8 +12,8 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.6.2
- * Date:    02.02.2012
+ * Version: 1.6.3
+ * Date:    03.02.2012
  * 
  * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/). 
  * 
@@ -541,9 +541,21 @@ public class HTTPClient{
 			len = to!(uint)(this.serverHeaders["Content-Length"]);
 			page = cast(string) ss.readString(to!(size_t)(len + 1))[1 .. $];
 		}else{
+			const uint BUFF_SIZE = 1024;
+			ubyte[BUFF_SIZE] buff;
+			
 			// Read until closed connection
-			while (!ss.socket().isAlive())
-				page ~= ss.readLine() ~ "\n";
+			while (ss.socket().isAlive()){
+				// readBlock is better than readString, because readString throws away '\n', so you dont know
+				// if you've received just '\n', or nothing
+				size_t size = ss.readBlock(&buff, BUFF_SIZE);
+				
+				// this actually ends while, ss.socket().isAlive() is sadly not so much useful
+				if (size <= 0)
+					break;
+				
+				page ~= cast(string) buff[0 .. size];
+			}
 		}
 
 		return page;
