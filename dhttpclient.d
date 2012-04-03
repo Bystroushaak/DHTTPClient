@@ -12,8 +12,8 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.6.3
- * Date:    03.02.2012
+ * Version: 1.7.0
+ * Date:    03.04.2012
  * 
  * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/). 
  * 
@@ -572,8 +572,16 @@ public class HTTPClient{
 		// Close connection
 		ss.close();
 
-		if (this.serverHeaders["StatusCode"].startsWith("4"))
-			throw new URLException(this.serverHeaders["StatusCode"]);
+		uint num_status_code = 0;
+		string status_code = this.serverHeaders["StatusCode"];
+		
+		if (status_code.startsWith("4")){
+			// Get StatusCode as int
+			if (status_code.indexOf(" ") > 0)
+				num_status_code = std.conv.to!int(status_code[0 .. status_code.indexOf(" ")]);
+			
+			throw new StatusCodeException(status_code, num_status_code, page);
+		}
 
 		return page;
 	}
