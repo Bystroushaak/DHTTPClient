@@ -12,108 +12,13 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.7.0
- * Date:    03.04.2012
+ * Version: 1.7.1
+ * Date:    19.06.2012
  * 
  * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/). 
  * 
  * This means that you can do whatever you want, but you have to add authors name. 
  * If you dont like this licence, send me email and I can release module under different conditions.
- * 
- * Examples:
- * Initialization;
- * ---
- * import dhttpclient;
- * 
- * HTTPClient cl = new HTTPClient();
- * ---
- * 
- * Download page with timestamp;
- * ---
- * writeln(cl.get("http://kitakitsune.org/proc/time.php"));
- * ---
- * output;
- * ---
- * 1298758706
- * ---
- * 
- * 
- * If I want to see headers from server;
- * ---
- * writeln(cl.getResponseHeaders());
- * ---
- * output;
- * ---
- * X-Powered-By:PHP/5.3.3-4 Keep-Alive:timeout=15, max=100 Date:Tue, 11 Jan 2011 20:06:25 GMT Vary:Accept-Encoding Content-Length:17 Connection:Keep-Alive Content-Type:text/html StatusCode:200 OK Server:Apache
- * ---
- * 
- * 
- * Send GET data;
- * ---
- * string[string] get_data = ["Type" : "GET"];
- * get_data["More data"] = "Some more data";
- * writeln(cl.get("http://bit.ly/gX0v4M", get_data));
- * ---
- * output;
- * ---
- * GET:
- *    More_data=Some more data
- *    Type=GET
- * POST:
- * 
- * ---
- * 
- * 
- * Send POST data;
- * ---
- * string[string] post_data = ["Type" : "POST"];
- * writeln(cl.post("http://bit.ly/gX0v4M", post_data));
- * ---
- * output;
- * ---
- * GET:
- * POST:
- *    Type=POST
- * 
- * ---
- * 
- * 
- * Send GET and POST data;
- * ---
- * writeln(cl.getAndPost("http://bit.ly/gX0v4M", get_data, post_data));
- * ---
- * output;
- * ---
- * GET:
- *    More_data=Some more data
- *    Type=GET
- * POST:
- *    Type=POST
- * 
- * ---
- * 
- * 
- * Disable redirection;
- * ---
- * cl.setIgnoreRedirect(true);
- * writeln(cl.getAndPost("http://bit.ly/gX0v4M", get_data, post_data));
- * writeln(cl.getClientHeaders());
- * ---
- * output;
- * ---
- * <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
- * <HTML>
- * <HEAD>
- * <TITLE>Moved</TITLE>
- * </HEAD>
- * <BODY>
- * <H2>Moved</H2>
- * <A HREF="http://kitakitsune.org/bhole/parametry.php">The requested URL has moved here.</A>
- * <P ALIGN=RIGHT><SMALL><I>AOLserver/4.5.1 on http://127.0.0.1:7300</I></SMALL></P>
- * </BODY>
- * </HTML>
- * Keep-Alive:300 Connection:keep-alive Accept-Language:cs,en-us;q=0.7,en;q=0.3 Accept:text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain User-Agent:Mozilla/5.0 (Windows; U; Windows NT 5.1; cs; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.13 Accept-Charset:utf-8
- * ---
  * 
 */
 module dhttpclient;
@@ -524,18 +429,13 @@ public class HTTPClient{
 				while (tmp.length == 0)
 					tmp = cast(string) ss.readLine();
 
-				// It looks, that some servers sends responses not exactly RFC compatible :/ (or, I'm idiot which can't read :S)
-				if (this.isHex(tmp)){
-					// Read size in hexa
-					len = std.conv.parse!int(tmp, 16);
+				len = std.conv.parse!int(tmp, 16);
 
-					if (len == 0)
-						break;
+				if (len == 0)
+					break;
 
-					// Read data
-					page ~= cast(string) ss.readString(to!(size_t)(len)) ~ "\n";
-				}else
-					page ~= tmp ~ "\n";
+				// Read data
+				page ~= (cast(string) ss.readString(to!(size_t)(len + 1)))[1 .. $];
 			}
 		}else if ("Content-Length" in this.serverHeaders){
 			len = to!(uint)(this.serverHeaders["Content-Length"]);

@@ -1,0 +1,5 @@
+Fixnout problém s HTTP 1.0 a replacováním - možná by bylo lepší prostě brát vše po prvním lomítku.
+
+Podívat se na RFC, jestli má HTTP 1.0 stejné status kódy jako 1.1.
+
+Dodělat HEAD požadavek, možná own požadavek.
