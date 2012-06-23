@@ -12,8 +12,8 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.7.1
- * Date:    19.06.2012
+ * Version: 1.7.2
+ * Date:    23.06.2012
  * 
  * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/). 
  * 
@@ -295,6 +295,8 @@ public class HTTPClient{
 	private uint recursion;                                 // Variable where is stored how many redirection was done
 	private string[string] get_params, post_params;         // In these variables are stored parameters when client is redirected to another server
 	private RequestType request_type = RequestType.NONEYET; // Which method call in case of redirection..
+	
+	private bool https_allowed = false;
 
 	private TcpSocket function(string domain, ushort port) getTcpSocket;
 
@@ -313,8 +315,11 @@ public class HTTPClient{
 	 * See_also: ParsedURL
 	*/
 	private SocketStream initConnection(ref ParsedURL pu){
-		if (! (pu.getProtocol() == "http" || pu.getProtocol() == "https")) // support only http/https
-			throw new URLException("Bad protocol!");
+		if (! (pu.getProtocol() == "http" || (https_allowed && pu.getProtocol() == "https"))) // support only http/https
+			throw new URLException("Bad protocol; " ~ pu.getProtocol() ~ " is not allowed!\n"
+									"If you don't know, why this exception was thrown, there is pretty big chance, that you were redirected to another page.\n" 
+									"You can set redirection off with setIgnoreRedirect(true), or allow https with httpsAllowed() API (but https is uninmplemented, "
+									"so you need to use your own ssl socket - check setTcpSocketCreator() :X).");
 
 		TcpSocket tsock;
 
@@ -364,7 +369,7 @@ public class HTTPClient{
 	private string[string] readHeaders(ref SocketStream ss){
 		string s = " ";
 		string[string] headers;
-		uint ioc = 0;
+		int ioc = 0;
 
 		// Read status line
 		s = cast(string) ss.readLine();
@@ -377,20 +382,20 @@ public class HTTPClient{
 
 		// Read headers
 		s = " ";
-		while (s.length){
+		while (s.length > 0){
 			s = cast(string) ss.readLine();
 
-			if (!s.length)
+			if (s.length == 0)
 				break;
 
 			// Parse headers
 			ioc = s.indexOf(":");
-			if (ioc >= 0)
+			if (ioc > 0)
 				headers[s[0 .. ioc]] = s[(ioc + 1) .. $].strip();
 			else
-				headers[s] = "";
+				break;
 		}
-
+		
 		return headers;
 	}
 
@@ -567,6 +572,8 @@ public class HTTPClient{
 			this.recursion = 0;
 			return data;
 		}
+		
+		throw new HTTPClientException("This is pretty strange exception - code flow _NEVER_ shoud be here (last line in handleExceptions())!");
 	}
 
 	 /**
@@ -764,6 +771,14 @@ public class HTTPClient{
 	*/
 	public void setIgnoreRedirect(bool ir){
 	    this.ignore_redirect = ir;
+	}
+	
+	/// Default false.
+	public void httpsAllowed(bool state){
+		this.https_allowed = state;
+	}
+	public bool httpsAllowed(){
+		return https_allowed;
 	}
 
 	///

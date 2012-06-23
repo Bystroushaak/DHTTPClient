@@ -10,8 +10,8 @@ Sources;
    - http://www.faqs.org/rfcs/rfc2616.html
 
 Author:  Bystroushaak (bystrousak@kitakitsune.org)
-Version: 1.6.1
-Date:    25.01.2012
+Version: 1.7.2
+Date:    23.06.2012
 
 = API: =========================================================================
 string[string] FFHeaders;
@@ -209,6 +209,14 @@ class HTTPClient;
 
 		This could be useful, because some pages return's interesting content 
 		which you can't normally see :)
+
+
+	void allowHttps(bool state);
+	bool allowHttps();
+		Allow https protocol !! IN URL !!.
+
+		Even if you allow https with this switch, you will still need to implement
+		SLL with setTcpSocketCreator() and SSL library.
 
 
 	uint getMaxRecursion();
