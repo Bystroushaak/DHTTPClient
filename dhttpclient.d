@@ -12,7 +12,7 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.7.4
+ * Version: 1.7.5
  * Date:    30.07.2013
  * 
  * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/). 
@@ -369,7 +369,7 @@ public class HTTPClient{
 	private string[string] readHeaders(ref SocketStream ss){
 		string s = " ";
 		string[string] headers;
-		long ioc = 0;
+		uint ioc = 0;
 
 		// Read status line
 		s = cast(string) ss.readLine();
@@ -391,7 +391,7 @@ public class HTTPClient{
 				break;
 
 			// Parse headers
-			ioc = s.indexOf(":");
+			ioc = cast(uint) s.indexOf(":");
 			if (ioc > 0)
 				headers[s[0 .. ioc]] = s[(ioc + 1) .. $].strip();
 			else
