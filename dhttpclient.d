@@ -12,8 +12,8 @@
  *     - http://www.faqs.org/rfcs/rfc2616.html
  * 
  * Author:  Bystroushaak (bystrousak@kitakitsune.org)
- * Version: 1.7.3
- * Date:    10.07.2012
+ * Version: 1.7.4
+ * Date:    30.07.2013
  * 
  * Copyright: This work is licensed under a CC BY (http://creativecommons.org/licenses/by/3.0/). 
  * 
@@ -369,7 +369,7 @@ public class HTTPClient{
 	private string[string] readHeaders(ref SocketStream ss){
 		string s = " ";
 		string[string] headers;
-		int ioc = 0;
+		long ioc = 0;
 
 		// Read status line
 		s = cast(string) ss.readLine();
